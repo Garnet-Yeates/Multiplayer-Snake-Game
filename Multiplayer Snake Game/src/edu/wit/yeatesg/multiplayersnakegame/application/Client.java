@@ -7,7 +7,6 @@ import edu.wit.yeatesg.multiplayersnakegame.datatypes.ClientDataSet;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.Snake;
 import edu.wit.yeatesg.multiplayersnakegame.packets.ErrorPacket;
 import edu.wit.yeatesg.multiplayersnakegame.packets.Packet;
-import edu.wit.yeatesg.multiplayersnakegame.packets.UpdateAllClientsPacket;
 
 public class Client
 {	

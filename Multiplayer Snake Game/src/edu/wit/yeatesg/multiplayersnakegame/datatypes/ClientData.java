@@ -122,6 +122,12 @@ public class ClientData
 	{
 		return fieldsToString(REGEX, ClientData.class);
 	}
+	
+	@Override
+	public ClientData clone()
+	{
+		return new ClientData(toString());
+	}
 
 	public String fieldsToString(String regex, Class<? extends ClientData> type)
 	{

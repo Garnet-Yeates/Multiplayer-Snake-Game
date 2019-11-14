@@ -20,8 +20,6 @@ import edu.wit.yeatesg.multiplayersnakegame.datatypes.Point;
 import edu.wit.yeatesg.multiplayersnakegame.packets.MessagePacket;
 import edu.wit.yeatesg.multiplayersnakegame.packets.Packet;
 import edu.wit.yeatesg.multiplayersnakegame.packets.UpdateSingleClientPacket;
-import edu.wit.yeatesg.multiplayersnakegame.packets.UpdateAllClientsPacket;
-
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.event.WindowEvent;
@@ -50,16 +48,11 @@ public class LobbyGUI extends JFrame
 	private DataInputStream inputStream;
 	private DataOutputStream outputStream;
 	
-	private Server hosting;
-	private boolean isHost;
-	
-	public LobbyGUI(Server hosting, String clientName, Socket clientSocket, DataInputStream inputStream, DataOutputStream outputStream, String serverName, String serverPort)
+	public LobbyGUI(String clientName, Socket clientSocket, DataInputStream inputStream, DataOutputStream outputStream, String serverName, String serverPort)
 	{
 		setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
 		thisClientName = clientName;
 		this.outputStream = outputStream;
-		this.hosting = hosting;
-		this.isHost = this.hosting != null;
 		allClients = new ClientDataSet();
 		initFrame();
 
@@ -69,7 +62,9 @@ public class LobbyGUI extends JFrame
 			{
 				while (!gameStarted)
 				{
+					System.out.println("waiting for packet");
 					Packet packetReceiving = Packet.parsePacket(inputStream.readUTF());
+					System.out.println(packetReceiving.getUTF());
 					onPacketReceive(packetReceiving);
 				}						
 			}
@@ -86,34 +81,21 @@ public class LobbyGUI extends JFrame
 	
 	private void onPacketReceive(Packet packetReceiving)
 	{
-		if (packetReceiving instanceof UpdateAllClientsPacket)
+		if (packetReceiving instanceof UpdateSingleClientPacket)
 		{
-			UpdateAllClientsPacket updatePacket = (UpdateAllClientsPacket) packetReceiving;
-			allClients.updateBasedOn(updatePacket);
-			System.out.println(thisClientName);
-			if (!firstUpdatePacketReceived)
-			{
-				firstUpdatePacketReceived = true;
-				for (ClientData data : allClients)
-					onPlayerJoinLobby(data);
-			}
-			else
-			{
-				if (allClients.didSomeoneJoinOnLastUpdate())
-				{
-					onPlayerJoinLobby(allClients.getWhoJoinedOnLastUpdate());
-				}
-				else if (allClients.didSomeoneLeaveOnLastUpdate())
-				{
-					onPlayerLeaveLobby(allClients.getWhoLeftOnLastUpdate());
-				}
-			}
+			allClients.updateBasedOn((UpdateSingleClientPacket) packetReceiving);
 		}
 		else if (packetReceiving instanceof MessagePacket)
 		{
 			MessagePacket msgPacket = (MessagePacket) packetReceiving;
 			switch (msgPacket.getMessage())
 			{
+			case "SOMEONE_JOIN":
+				onPlayerJoinLobby(allClients.get(allClients.size() - 1)); // The client at size - 1 is the one who just joined
+				break;
+			case "THEY_EXIT":
+				onPlayerLeaveLobby(allClients.get(msgPacket.getSender()));
+				break;
 			case "YOU_EXIT":
 				onExit();
 				break;
@@ -148,6 +130,8 @@ public class LobbyGUI extends JFrame
 
 	private void onPlayerJoinLobby(ClientData whoJoinedOnLastUpdate)
 	{
+		if (whoJoinedOnLastUpdate.isHost() && whoJoinedOnLastUpdate.getClientName().equals(thisClientName))
+			button_startGame.setEnabled(true);			
 		PlayerPanel emptyPanel = getEmptyPlayerPanel();
 		emptyPanel.connectClient(whoJoinedOnLastUpdate);
 	}
@@ -156,6 +140,7 @@ public class LobbyGUI extends JFrame
 	{
 		PlayerPanel leaversPanel = getConnectedPlayerPanel(whoLeftOnLastUpdate);
 		leaversPanel.disconnectClient();
+		allClients.remove(whoLeftOnLastUpdate);
 	}
 	
 	private ArrayList<PlayerPanel> playerPanelList;
@@ -175,6 +160,8 @@ public class LobbyGUI extends JFrame
 				return playerPanel;
 		return null;
 	}
+	
+	JButton button_startGame;
 	
 	private void initFrame()
 	{
@@ -219,12 +206,12 @@ public class LobbyGUI extends JFrame
 		button_disconnect.setBounds(10, 211, 130, 23);
 		contentPane.add(button_disconnect);
 		
-		JButton button_startGame = new JButton("Start Game");
+		button_startGame = new JButton("Start Game");
 		button_startGame.addActionListener((e) -> onStartGamePress());
 		button_startGame.setForeground(Color.BLACK);
 		button_startGame.setBackground(Color.BLACK);
 		button_startGame.setBounds(150, 211, 130, 23);
-		button_startGame.setEnabled(isHost);
+		button_startGame.setEnabled(false);
 		contentPane.add(button_startGame);
 		
 		setVisible(true);
@@ -235,7 +222,6 @@ public class LobbyGUI extends JFrame
 	class PlayerPanel extends JPanel
 	{
 		private static final long serialVersionUID = 5816367030492476277L;
-		
 		
 		private int playerNum;
 		
@@ -348,10 +334,11 @@ public class LobbyGUI extends JFrame
 			nameField.setText(hasConnectedClient() ? connectedClient.getClientName() : "<not connected>");
 			if (hasConnectedClient())
 			{
-				connectedClient.setColor(getColor());
-				connectedClient.setDirection(getStartDirection());
-				connectedClient.setHeadLocation(getStartPoint());
-				UpdateSingleClientPacket pack = new UpdateSingleClientPacket(connectedClient);
+				ClientData clonedData = this.connectedClient.clone(); // Remember, we don't want the data to actually change
+				clonedData.setColor(getColor());                      // until the server approves it, so modify a clone
+				clonedData.setDirection(getStartDirection());
+				clonedData.setHeadLocation(getStartPoint());
+				UpdateSingleClientPacket pack = new UpdateSingleClientPacket(clonedData);
 				pack.setDataStream(outputStream);
 				pack.send();
 			}

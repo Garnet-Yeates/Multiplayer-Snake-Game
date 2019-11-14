@@ -58,15 +58,17 @@ public class ConnectGUI extends JFrame
 		field_ip.setBounds(10, 29, 108, 20);
 		contentPane.add(field_ip);
 		field_ip.setColumns(10);
+		field_ip.setText("localhost");
 
 		field_port = new JTextField();
 		field_port.setHorizontalAlignment(SwingConstants.LEFT);
 		field_port.setColumns(10);
 		field_port.setBounds(142, 29, 53, 20);
+		field_port.setText("8122");
 		contentPane.add(field_port);
 
 		field_name = new JTextField();
-		field_name.setText("1234567890");
+		field_name.setText("Nom");
 		field_name.setColumns(10);
 		field_name.setBounds(10, 70, 108, 20);
 		contentPane.add(field_name);
@@ -156,7 +158,6 @@ public class ConnectGUI extends JFrame
 					throw new RuntimeException();				
 			}
 
-						
 			// Inputs are not erroneous, try to connect
 
 			Socket clientSocket = new Socket(field_ip.getText(), Integer.parseInt(field_port.getText()));
@@ -187,7 +188,7 @@ public class ConnectGUI extends JFrame
 				String connectedServerName = serverResponse.getSender();
 				String connectedServerPort = serverResponse.getMessage();
 
-				new LobbyGUI(hosting, field_name.getText(), clientSocket, inputStream, outputStream, connectedServerName, connectedServerPort);
+				new LobbyGUI(field_name.getText(), clientSocket, inputStream, outputStream, connectedServerName, connectedServerPort);
 				dispose(); // We are now done with this GUI
 			}
 		}

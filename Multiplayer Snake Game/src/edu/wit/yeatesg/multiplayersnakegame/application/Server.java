@@ -1,6 +1,5 @@
 package edu.wit.yeatesg.multiplayersnakegame.application;
 
-import java.awt.EventQueue;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -11,11 +10,9 @@ import java.util.Random;
 
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.ClientData;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.ClientDataSet;
-import edu.wit.yeatesg.multiplayersnakegame.datatypes.Color;
 import edu.wit.yeatesg.multiplayersnakegame.packets.ErrorPacket;
 import edu.wit.yeatesg.multiplayersnakegame.packets.MessagePacket;
 import edu.wit.yeatesg.multiplayersnakegame.packets.Packet;
-import edu.wit.yeatesg.multiplayersnakegame.packets.UpdateAllClientsPacket;
 import edu.wit.yeatesg.multiplayersnakegame.packets.UpdateSingleClientPacket;
 
 public class Server
@@ -27,7 +24,7 @@ public class Server
 
 	private String serverName;
 
-	private ClientDataSet connectedSnakes;
+	private ClientDataSet connectedClients;
 		
 	private int port;
 	
@@ -35,7 +32,7 @@ public class Server
 	{	
 		this.port = port;
 		serverName = "Server";
-		connectedSnakes = new ClientDataSet();
+		connectedClients = new ClientDataSet();
 	}
 	
 	public void startServer() throws IOException
@@ -46,8 +43,7 @@ public class Server
 		{                            // the code in the ConnectGUI where startServer() was originally 
 			while (true)             // called. If we don't do this, then the startFailed field in
 			{                        // ServerStartRunnable will always be null. This will freeze the
-				                     // program
-				try           
+				try              	 // program because attemptConnect() needs startFailed to be != null
 				{
 					final Socket s = ss.accept(); // Handle clients in separate threads to allow for multi connecting
 					Thread packetReceiveThread = new Thread(new PacketReceiveThread(s));
@@ -136,28 +132,38 @@ public class Server
 				UpdateSingleClientPacket clientRequestPacket = (UpdateSingleClientPacket) Packet.parsePacket(inputStream.readUTF());
 				ClientData data = clientRequestPacket.getClientData();
 				String clientName = data.getClientName();
-				ClientDataForServer serverSideClientData = new ClientDataForServer(data, s, outputStream); 
+				ClientDataForServer justJoinedClientData = new ClientDataForServer(data, s, outputStream); 
 				
-				boolean isEmpty = connectedSnakes.size() == 0;
-				boolean isFull = connectedSnakes.size() == 4;
-				boolean clientNameTaken = connectedSnakes.contains(clientName);
+				justJoinedClientData.setIsHost(connectedClients.size() == 0);
+				boolean isFull = connectedClients.size() == 4;
+				boolean clientNameTaken = connectedClients.contains(clientName);				
 				
 				if (!isFull && !clientNameTaken)
-				{
-					connectedSnakes.add(serverSideClientData);
-					
+				{	
 					MessagePacket accepted = new MessagePacket(serverName, "CONNECTION_ACCEPT");
-					accepted.setDataStream(serverSideClientData.getOutputStream());
-					accepted.send();
+					accepted.setDataStream(justJoinedClientData.getOutputStream());
+					accepted.send(); // After this is received, the client's while loop will start
 					
-					// At this point the client's while loop has started
+					// Send the ClientData of the clients that were already connected to the newly connected client
+					for (ClientData client : connectedClients)
+					{
+						UpdateSingleClientPacket pack = new UpdateSingleClientPacket(client);
+						pack.setDataStream(justJoinedClientData.getOutputStream());
+						pack.send();
+						MessagePacket notifyJoin = new MessagePacket(client.getClientName(), "SOMEONE_JOIN");
+						notifyJoin.setDataStream(justJoinedClientData.getOutputStream());
+						notifyJoin.send();
+					}					
 					
-					if (isEmpty) // If they are the first connected client, they are now the host
-						serverSideClientData.setIsHost(true);
-					
-					// Send new connectedSnakes list to all clients so they know who is connected
-					UpdateAllClientsPacket dataListUpdate = new UpdateAllClientsPacket(connectedSnakes);
-					dataListUpdate.sendMultiple(getAllOutputStreams());
+					connectedClients.add(justJoinedClientData);
+
+					// Send the ClientData of the newly connected client to all of the connected clients (including the new client itself)
+					UpdateSingleClientPacket updatePack = new UpdateSingleClientPacket(justJoinedClientData);
+					updatePack.sendMultiple(getAllOutputStreams());
+
+					// Notify all clients that someone joined so the lobby can be updated properly
+					MessagePacket notifyJoin = new MessagePacket(justJoinedClientData.getClientName(), "SOMEONE_JOIN");
+					notifyJoin.sendMultiple(getAllOutputStreams());
 					
 					while (active) // Constantly wait for new packets from this client on this separate Thread
 						onPacketReceive(Packet.parsePacket(inputStream.readUTF()));
@@ -177,7 +183,7 @@ public class Server
 			}
 			catch (Exception e)
 			{
-				connectedSnakes.remove(client);
+				connectedClients.remove(client);
 			}	
 		}
 
@@ -190,8 +196,8 @@ public class Server
 	private ArrayList<DataOutputStream> getAllOutputStreams()
 	{
 		ArrayList<DataOutputStream> osList = new ArrayList<>();
-		for (ClientData data : connectedSnakes)
-			osList.add(((ClientDataForServer) data).getOutputStream());
+		for (ClientData data : connectedClients)
+			osList.add(((ClientDataForServer) data).getOutputStream());	
 		return osList;
 	}
 
@@ -200,7 +206,7 @@ public class Server
 		if (packet instanceof MessagePacket)
 		{	
 			MessagePacket msgPacket = (MessagePacket) packet;
-			ClientDataForServer sender = (ClientDataForServer) connectedSnakes.get(msgPacket.getSender());
+			ClientDataForServer sender = (ClientDataForServer) connectedClients.get(msgPacket.getSender());
 			switch (msgPacket.getMessage())
 			{
 			case "START_GAME":
@@ -245,24 +251,33 @@ public class Server
 			MessagePacket response = new MessagePacket(quitter.getClientName(), "YOU_EXIT");
 			response.setDataStream(quitter.getOutputStream());
 			response.send();
-
-			closeConnection(quitter);
 			
-			// Update other clients' list of connected snakes
-			UpdateAllClientsPacket updatePacket = new UpdateAllClientsPacket(connectedSnakes);
-			updatePacket.sendMultiple(getAllOutputStreams());
+			closeConnection(quitter);			
 			
+			MessagePacket responseToOthers = new MessagePacket(quitter.getClientName(), "THEY_EXIT");
+			responseToOthers.sendMultiple(getAllOutputStreams());
 		}
 	}
 	
 	private void onReceiveClientDataUpdate(UpdateSingleClientPacket updatePacket)
 	{
-		// Update the client's info on the server
-		connectedSnakes.updateBasedOn(updatePacket);
+		ArrayList<ClientDataForServer> oldList = new ArrayList<>();
+		for (ClientData data : connectedClients)
+			oldList.add((ClientDataForServer) data);
 		
-		// Update other clients' list of connected snakes 
-		UpdateAllClientsPacket updateClients = new UpdateAllClientsPacket(connectedSnakes);
-		updateClients.sendMultiple(getAllOutputStreams());
+		// Update the client's info on the server
+		connectedClients.updateBasedOn(updatePacket);
+		
+		for (int i = 0; i < connectedClients.size(); i++)
+		{
+			ClientDataForServer serverSideClientData = new ClientDataForServer(connectedClients.get(i));
+			serverSideClientData.setSocket(oldList.get(i).getSocket());
+			serverSideClientData.setOutputStream(oldList.get(i).getOutputStream());
+			connectedClients.set(i, serverSideClientData);
+		}
+		
+		// Bounce packet back to all clients
+		updatePacket.sendMultiple(getAllOutputStreams());
 	}
 	
 	private void closeConnection(ClientDataForServer exiting)
@@ -272,13 +287,13 @@ public class Server
 			exiting.getSocket().close();
 		}
 		catch (IOException e) { }
-		connectedSnakes.remove(exiting);
+		connectedClients.remove(exiting);
 	}
 	
 	private void closeAllConnections()
 	{
 		ArrayList<ClientDataForServer> copy = new ArrayList<>();
-		for (ClientData dat : connectedSnakes) // Avoid ConcurrentModificationException here
+		for (ClientData dat : connectedClients) // Avoid ConcurrentModificationException here
 			copy.add((ClientDataForServer) dat);
 		for (ClientDataForServer dat : copy)
 			closeConnection(dat);

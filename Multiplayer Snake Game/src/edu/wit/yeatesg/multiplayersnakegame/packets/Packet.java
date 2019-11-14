@@ -39,8 +39,6 @@ public abstract class Packet
 				 return new ErrorPacket(packetData);
 			 case "MessagePacket":
 				 return new MessagePacket(packetData);
-			 case "UpdateAllClientsPacket":
-				 return new UpdateAllClientsPacket(packetData);
 			 case "UpdateSingleClientPacket":
 				 return new UpdateSingleClientPacket(packetData);
 			 case "TickPacket":

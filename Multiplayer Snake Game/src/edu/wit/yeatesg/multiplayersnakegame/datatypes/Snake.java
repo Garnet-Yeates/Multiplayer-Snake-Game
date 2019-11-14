@@ -1,9 +1,5 @@
 package edu.wit.yeatesg.multiplayersnakegame.datatypes;
 
-import java.util.ArrayList;
-
-import edu.wit.yeatesg.multiplayersnakegame.packets.UpdateAllClientsPacket;
-
 public class Snake extends ClientData
 {		
 	public Snake(ClientData parent)
