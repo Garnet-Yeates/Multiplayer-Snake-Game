@@ -1,4 +1,4 @@
-package edu.wit.yeatesg.multiplayersnakegame.gui;
+package edu.wit.yeatesg.multiplayersnakegame.phase1connect;
 
 import java.awt.BorderLayout;
 import java.awt.EventQueue;
@@ -11,15 +11,17 @@ import javax.swing.JLabel;
 import javax.swing.border.EtchedBorder;
 import javax.swing.border.MatteBorder;
 
-import edu.wit.yeatesg.multiplayersnakegame.application.Server;
-import edu.wit.yeatesg.multiplayersnakegame.datatypes.ClientData;
-import edu.wit.yeatesg.multiplayersnakegame.datatypes.ClientDataSet;
-import edu.wit.yeatesg.multiplayersnakegame.datatypes.Color;
-import edu.wit.yeatesg.multiplayersnakegame.datatypes.Direction;
-import edu.wit.yeatesg.multiplayersnakegame.datatypes.Point;
-import edu.wit.yeatesg.multiplayersnakegame.packets.MessagePacket;
-import edu.wit.yeatesg.multiplayersnakegame.packets.Packet;
-import edu.wit.yeatesg.multiplayersnakegame.packets.UpdateSingleClientPacket;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.Color;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.Direction;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.SnakeData;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.SnakeList;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.Point;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.MessagePacket;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.Packet;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.SnakeUpdatePacket;
+import edu.wit.yeatesg.multiplayersnakegame.phase2play.GameGUI;
+import edu.wit.yeatesg.multiplayersnakegame.server.Server;
+
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.event.WindowEvent;
@@ -39,21 +41,22 @@ public class LobbyGUI extends JFrame
 	private JPanel contentPane;	
 
 	private boolean gameStarted = false;
-	private int numConnected;
 	
 	private String thisClientName;
-	private ClientDataSet allClients;
-
-	private Socket clientSocket;
-	private DataInputStream inputStream;
+	private SnakeList allClients;
 	private DataOutputStream outputStream;
 	
-	public LobbyGUI(String clientName, Socket clientSocket, DataInputStream inputStream, DataOutputStream outputStream, String serverName, String serverPort)
+	private int x;
+	private int y;
+	
+	public LobbyGUI(String clientName, Socket clientSocket, DataInputStream inputStream, DataOutputStream outputStream, String serverName, String serverPort, int x, int y)
 	{
+		this.x = x;
+		this.y = y;
 		setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
 		thisClientName = clientName;
 		this.outputStream = outputStream;
-		allClients = new ClientDataSet();
+		allClients = new SnakeList();
 		initFrame();
 
 		Thread inputThread = new Thread(() ->
@@ -81,9 +84,9 @@ public class LobbyGUI extends JFrame
 	
 	private void onPacketReceive(Packet packetReceiving)
 	{
-		if (packetReceiving instanceof UpdateSingleClientPacket)
+		if (packetReceiving instanceof SnakeUpdatePacket)
 		{
-			allClients.updateBasedOn((UpdateSingleClientPacket) packetReceiving);
+			allClients.updateBasedOn((SnakeUpdatePacket) packetReceiving);
 		}
 		else if (packetReceiving instanceof MessagePacket)
 		{
@@ -128,7 +131,7 @@ public class LobbyGUI extends JFrame
 		System.exit(0);
 	}
 
-	private void onPlayerJoinLobby(ClientData whoJoinedOnLastUpdate)
+	private void onPlayerJoinLobby(SnakeData whoJoinedOnLastUpdate)
 	{
 		if (whoJoinedOnLastUpdate.isHost() && whoJoinedOnLastUpdate.getClientName().equals(thisClientName))
 			button_startGame.setEnabled(true);			
@@ -136,7 +139,7 @@ public class LobbyGUI extends JFrame
 		emptyPanel.connectClient(whoJoinedOnLastUpdate);
 	}
 
-	private void onPlayerLeaveLobby(ClientData whoLeftOnLastUpdate)
+	private void onPlayerLeaveLobby(SnakeData whoLeftOnLastUpdate)
 	{
 		PlayerPanel leaversPanel = getConnectedPlayerPanel(whoLeftOnLastUpdate);
 		leaversPanel.disconnectClient();
@@ -145,7 +148,7 @@ public class LobbyGUI extends JFrame
 	
 	private ArrayList<PlayerPanel> playerPanelList;
 
-	private PlayerPanel getConnectedPlayerPanel(ClientData client)
+	private PlayerPanel getConnectedPlayerPanel(SnakeData client)
 	{
 		for (PlayerPanel panel : playerPanelList)
 			if (client.equals(panel.getConnectedClient()))
@@ -167,7 +170,7 @@ public class LobbyGUI extends JFrame
 	{
 		setTitle(thisClientName);
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		setBounds(100, 100, 297, 284);
+		setBounds(x, y, 304, 284);
 		setResizable(false);
 		
 		addWindowListener(new WindowListener()
@@ -305,9 +308,9 @@ public class LobbyGUI extends JFrame
 			}
 		}
 		
-		private ClientData connectedClient = null;
+		private SnakeData connectedClient = null;
 		
-		public void connectClient(ClientData clientData)
+		public void connectClient(SnakeData clientData)
 		{
 			connectedClient = clientData;
 			updateConnectedClientInfo();
@@ -324,7 +327,7 @@ public class LobbyGUI extends JFrame
 			return connectedClient != null;
 		}
 		
-		public ClientData getConnectedClient()
+		public SnakeData getConnectedClient()
 		{
 			return connectedClient;
 		}
@@ -334,11 +337,11 @@ public class LobbyGUI extends JFrame
 			nameField.setText(hasConnectedClient() ? connectedClient.getClientName() : "<not connected>");
 			if (hasConnectedClient())
 			{
-				ClientData clonedData = this.connectedClient.clone(); // Remember, we don't want the data to actually change
+				SnakeData clonedData = this.connectedClient.clone(); // Remember, we don't want the data to actually change
 				clonedData.setColor(getColor());                      // until the server approves it, so modify a clone
 				clonedData.setDirection(getStartDirection());
-				clonedData.setHeadLocation(getStartPoint());
-				UpdateSingleClientPacket pack = new UpdateSingleClientPacket(clonedData);
+// TODO fix fix fix implement implement implement				clonedData.setHeadLocation(getStartPoint());
+				SnakeUpdatePacket pack = new SnakeUpdatePacket(clonedData);
 				pack.setDataStream(outputStream);
 				pack.send();
 			}

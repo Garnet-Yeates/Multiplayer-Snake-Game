@@ -1,4 +1,4 @@
-package edu.wit.yeatesg.multiplayersnakegame.datatypes;
+package edu.wit.yeatesg.multiplayersnakegame.datatypes.other;
 
 public class Point
 {

@@ -1,30 +1,30 @@
-package edu.wit.yeatesg.multiplayersnakegame.application;
+package edu.wit.yeatesg.multiplayersnakegame.server;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Random;
 
-import edu.wit.yeatesg.multiplayersnakegame.datatypes.ClientData;
-import edu.wit.yeatesg.multiplayersnakegame.datatypes.ClientDataSet;
-import edu.wit.yeatesg.multiplayersnakegame.packets.ErrorPacket;
-import edu.wit.yeatesg.multiplayersnakegame.packets.MessagePacket;
-import edu.wit.yeatesg.multiplayersnakegame.packets.Packet;
-import edu.wit.yeatesg.multiplayersnakegame.packets.UpdateSingleClientPacket;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.SnakeData;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.SnakeList;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.ErrorPacket;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.MessagePacket;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.Packet;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.SnakeUpdatePacket;
 
 public class Server
 {
 	private static final Random R = new Random();
-	private static final long serialVersionUID = -1455481211578890895L;
 
 	private ServerSocket ss;
 
 	private String serverName;
 
-	private ClientDataSet connectedClients;
+	private SnakeListForServer connectedClients;
 		
 	private int port;
 	
@@ -32,73 +32,44 @@ public class Server
 	{	
 		this.port = port;
 		serverName = "Server";
-		connectedClients = new ClientDataSet();
+		connectedClients = new SnakeListForServer();
 	}
 	
-	public void startServer() throws IOException
+	private boolean isRunning = true;
+	
+	public boolean isRunning()
 	{
-		ss = new ServerSocket(port);
-		
-		Thread t = new Thread(() ->  // Open socket on another thread because we don't want to freeze 
-		{                            // the code in the ConnectGUI where startServer() was originally 
-			while (true)             // called. If we don't do this, then the startFailed field in
-			{                        // ServerStartRunnable will always be null. This will freeze the
-				try              	 // program because attemptConnect() needs startFailed to be != null
-				{
-					final Socket s = ss.accept(); // Handle clients in separate threads to allow for multi connecting
-					Thread packetReceiveThread = new Thread(new PacketReceiveThread(s));
-					packetReceiveThread.start();
-				}
-				catch (Exception e)
-				{
-					e.printStackTrace();
-				}
-
-			}
-		});
-		t.start();
+		return isRunning;
 	}
-
-	static class ClientDataForServer extends ClientData
+	
+	public void startServer()
 	{
-		private Socket socket;
-		private DataOutputStream outputStream;
-		
-		public ClientDataForServer(ClientData parent, Socket socket, DataOutputStream outputStream)
+		try
 		{
-			super(parent.getClientName(),
-					parent.getColor(),
-					parent.getDirection(),
-					parent.getHeadLocation(),
-					parent.getNextHeadLocation(),
-					parent.isHost());
-			this.socket = socket;
-			this.outputStream = outputStream;
+			ss = new ServerSocket(port);
+
+			Thread t = new Thread(() ->  // Run in different Thread so it doesn't freeze at the while loop. If we didn't do
+			{                            // this then whatever thread calls startServer() will freeze until the server closes
+				while (true)             
+				{                        
+					try              	 
+					{
+						final Socket s = ss.accept(); // Handle clients in separate threads to allow for multi connecting
+						Thread packetReceiveThread = new Thread(new PacketReceiveThread(s));
+						packetReceiveThread.start();
+					}
+					catch (Exception e)
+					{
+						break;
+					}
+
+				}
+			});
+			t.start();
 		}
-		
-		public ClientDataForServer(ClientData parent)
+		catch (IOException e)
 		{
-			this(parent, null, null);
-		}
-		
-		public Socket getSocket()
-		{
-			return socket;
-		}
-		
-		public void setSocket(Socket s)
-		{
-			socket = s;
-		}
-		
-		public DataOutputStream getOutputStream()
-		{
-			return outputStream;
-		}
-		
-		public void setOutputStream(DataOutputStream os)
-		{
-			outputStream = os;
+			isRunning = false;
 		}
 	}
 	
@@ -114,7 +85,7 @@ public class Server
 	{
 		private boolean active = true;
 		private Socket s;
-		private ClientDataForServer client;
+		private SnakeDataForServer client;
 
 		public PacketReceiveThread(Socket s)
 		{
@@ -129,10 +100,10 @@ public class Server
 				DataInputStream inputStream = new DataInputStream(s.getInputStream());
 				DataOutputStream outputStream = new DataOutputStream(s.getOutputStream());
 
-				UpdateSingleClientPacket clientRequestPacket = (UpdateSingleClientPacket) Packet.parsePacket(inputStream.readUTF());
-				ClientData data = clientRequestPacket.getClientData();
+				SnakeUpdatePacket clientRequestPacket = (SnakeUpdatePacket) Packet.parsePacket(inputStream.readUTF());
+				SnakeData data = clientRequestPacket.getClientData();
 				String clientName = data.getClientName();
-				ClientDataForServer justJoinedClientData = new ClientDataForServer(data, s, outputStream); 
+				SnakeDataForServer justJoinedClientData = new SnakeDataForServer(data, s, outputStream); 
 				
 				justJoinedClientData.setIsHost(connectedClients.size() == 0);
 				boolean isFull = connectedClients.size() == 4;
@@ -145,9 +116,9 @@ public class Server
 					accepted.send(); // After this is received, the client's while loop will start
 					
 					// Send the ClientData of the clients that were already connected to the newly connected client
-					for (ClientData client : connectedClients)
+					for (SnakeData client : connectedClients)
 					{
-						UpdateSingleClientPacket pack = new UpdateSingleClientPacket(client);
+						SnakeUpdatePacket pack = new SnakeUpdatePacket(client);
 						pack.setDataStream(justJoinedClientData.getOutputStream());
 						pack.send();
 						MessagePacket notifyJoin = new MessagePacket(client.getClientName(), "SOMEONE_JOIN");
@@ -158,12 +129,12 @@ public class Server
 					connectedClients.add(justJoinedClientData);
 
 					// Send the ClientData of the newly connected client to all of the connected clients (including the new client itself)
-					UpdateSingleClientPacket updatePack = new UpdateSingleClientPacket(justJoinedClientData);
-					updatePack.sendMultiple(getAllOutputStreams());
+					SnakeUpdatePacket updatePack = new SnakeUpdatePacket(justJoinedClientData);
+					updatePack.sendMultiple(connectedClients.getAllOutputStreams());
 
 					// Notify all clients that someone joined so the lobby can be updated properly
 					MessagePacket notifyJoin = new MessagePacket(justJoinedClientData.getClientName(), "SOMEONE_JOIN");
-					notifyJoin.sendMultiple(getAllOutputStreams());
+					notifyJoin.sendMultiple(connectedClients.getAllOutputStreams());
 					
 					while (active) // Constantly wait for new packets from this client on this separate Thread
 						onPacketReceive(Packet.parsePacket(inputStream.readUTF()));
@@ -181,24 +152,16 @@ public class Server
 					responsePacket.send();
 				}
 			}
-			catch (Exception e)
+			catch (IOException e)
 			{
+				System.out.println("IOException for client named " + client + ". Removing from server");
 				connectedClients.remove(client);
-			}	
+			}
 		}
-
 		public void stopRunning()
 		{
 			active = false;
 		}
-	}
-	
-	private ArrayList<DataOutputStream> getAllOutputStreams()
-	{
-		ArrayList<DataOutputStream> osList = new ArrayList<>();
-		for (ClientData data : connectedClients)
-			osList.add(((ClientDataForServer) data).getOutputStream());	
-		return osList;
 	}
 
 	private void onPacketReceive(Packet packet)
@@ -206,7 +169,7 @@ public class Server
 		if (packet instanceof MessagePacket)
 		{	
 			MessagePacket msgPacket = (MessagePacket) packet;
-			ClientDataForServer sender = (ClientDataForServer) connectedClients.get(msgPacket.getSender());
+			SnakeDataForServer sender = (SnakeDataForServer) connectedClients.get(msgPacket.getSender());
 			switch (msgPacket.getMessage())
 			{
 			case "START_GAME":
@@ -218,9 +181,9 @@ public class Server
 				break;
 			}
 		}
-		else if (packet instanceof UpdateSingleClientPacket)
+		else if (packet instanceof SnakeUpdatePacket)
 		{
-			onReceiveClientDataUpdate((UpdateSingleClientPacket) packet);
+			onReceiveClientDataUpdate((SnakeUpdatePacket) packet);
 		}
 	}
 	
@@ -236,12 +199,12 @@ public class Server
 		
 	}
 	
-	private void onClientQuit(ClientDataForServer quitter)
+	private void onClientQuit(SnakeDataForServer quitter)
 	{
 		if (quitter.isHost())
 		{
 			MessagePacket response = new MessagePacket(quitter.getClientName(), "YOU_EXIT");
-			response.sendMultiple(getAllOutputStreams());
+			response.sendMultiple(connectedClients.getAllOutputStreams());
 	
 			closeAllConnections();
 			System.exit(0);
@@ -255,32 +218,20 @@ public class Server
 			closeConnection(quitter);			
 			
 			MessagePacket responseToOthers = new MessagePacket(quitter.getClientName(), "THEY_EXIT");
-			responseToOthers.sendMultiple(getAllOutputStreams());
+			responseToOthers.sendMultiple(connectedClients.getAllOutputStreams());
 		}
 	}
 	
-	private void onReceiveClientDataUpdate(UpdateSingleClientPacket updatePacket)
+	private void onReceiveClientDataUpdate(SnakeUpdatePacket updatePacket)
 	{
-		ArrayList<ClientDataForServer> oldList = new ArrayList<>();
-		for (ClientData data : connectedClients)
-			oldList.add((ClientDataForServer) data);
-		
 		// Update the client's info on the server
 		connectedClients.updateBasedOn(updatePacket);
 		
-		for (int i = 0; i < connectedClients.size(); i++)
-		{
-			ClientDataForServer serverSideClientData = new ClientDataForServer(connectedClients.get(i));
-			serverSideClientData.setSocket(oldList.get(i).getSocket());
-			serverSideClientData.setOutputStream(oldList.get(i).getOutputStream());
-			connectedClients.set(i, serverSideClientData);
-		}
-		
 		// Bounce packet back to all clients
-		updatePacket.sendMultiple(getAllOutputStreams());
+		updatePacket.sendMultiple(connectedClients.getAllOutputStreams());
 	}
 	
-	private void closeConnection(ClientDataForServer exiting)
+	private void closeConnection(SnakeDataForServer exiting)
 	{
 		try
 		{
@@ -292,10 +243,10 @@ public class Server
 	
 	private void closeAllConnections()
 	{
-		ArrayList<ClientDataForServer> copy = new ArrayList<>();
-		for (ClientData dat : connectedClients) // Avoid ConcurrentModificationException here
-			copy.add((ClientDataForServer) dat);
-		for (ClientDataForServer dat : copy)
+		ArrayList<SnakeDataForServer> copy = new ArrayList<>();
+		for (SnakeData dat : connectedClients) // Avoid ConcurrentModificationException here
+			copy.add((SnakeDataForServer) dat);
+		for (SnakeDataForServer dat : copy)
 			closeConnection(dat);
 	}
 }

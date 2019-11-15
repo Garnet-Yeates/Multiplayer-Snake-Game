@@ -1,4 +1,4 @@
-package edu.wit.yeatesg.multiplayersnakegame.packets;
+package edu.wit.yeatesg.multiplayersnakegame.datatypes.packet;
 
 public class MessagePacket extends Packet
 {

@@ -1,9 +1,9 @@
-package edu.wit.yeatesg.multiplayersnakegame.datatypes;
+package edu.wit.yeatesg.multiplayersnakegame.datatypes.other;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 
-public class ClientData
+public class SnakeData
 {
 	public static final String REGEX = ":";
 
@@ -16,7 +16,7 @@ public class ClientData
 
 	private boolean isHost;
 
-	public ClientData(String name, Color color, Direction direction, Point currentHeadLoc, Point nextHeadLoc, boolean isHost)
+	public SnakeData(String name, Color color, Direction direction, Point currentHeadLoc, Point nextHeadLoc, boolean isHost)
 	{
 		this.name = name;
 		this.color = color;
@@ -26,7 +26,7 @@ public class ClientData
 		this.isHost = isHost;
 	}
 
-	public ClientData(String... params)
+	public SnakeData(String... params)
 	{
 		this(params[0],
 				Color.fromString(params[1]),
@@ -36,7 +36,7 @@ public class ClientData
 				Boolean.parseBoolean(params[5]));
 	}
 
-	public ClientData()
+	public SnakeData()
 	{
 		this.name = "null";
 		this.color = Color.BLACK;
@@ -46,7 +46,7 @@ public class ClientData
 		this.isHost = false;
 	}
 
-	public ClientData(String splittableString)
+	public SnakeData(String splittableString)
 	{
 		this(splittableString.split(REGEX));
 	}
@@ -114,22 +114,22 @@ public class ClientData
 	@Override
 	public boolean equals(Object obj)
 	{
-		return obj instanceof ClientData && ((ClientData) obj).getClientName().equalsIgnoreCase(name);
+		return obj instanceof SnakeData && ((SnakeData) obj).getClientName().equalsIgnoreCase(name);
 	}
 
 	@Override
 	public String toString()
 	{
-		return fieldsToString(REGEX, ClientData.class);
+		return fieldsToString(REGEX, SnakeData.class);
 	}
 	
 	@Override
-	public ClientData clone()
+	public SnakeData clone()
 	{
-		return new ClientData(toString());
+		return new SnakeData(toString());
 	}
 
-	public String fieldsToString(String regex, Class<? extends ClientData> type)
+	public String fieldsToString(String regex, Class<? extends SnakeData> type)
 	{
 		Field[] fields = type.getDeclaredFields();
 
@@ -149,7 +149,7 @@ public class ClientData
 		{
 			try
 			{					
-				if (!Modifier.isStatic(f.getModifiers()) && f.getDeclaringClass() == ClientData.class) // Add all instance field values to the String, separated by regex
+				if (!Modifier.isStatic(f.getModifiers()) && f.getDeclaringClass() == SnakeData.class) // Add all instance field values to the String, separated by regex
 				{
 					Object v = f.get(this);
 					s += v + (index == numInstanceFields - 1 ? "" : regex);

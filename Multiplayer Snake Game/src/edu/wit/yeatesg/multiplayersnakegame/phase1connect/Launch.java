@@ -1,6 +1,4 @@
-package edu.wit.yeatesg.multiplayersnakegame.application;
-
-import edu.wit.yeatesg.multiplayersnakegame.gui.ConnectGUI;
+package edu.wit.yeatesg.multiplayersnakegame.phase1connect;
 
 public class Launch
 {

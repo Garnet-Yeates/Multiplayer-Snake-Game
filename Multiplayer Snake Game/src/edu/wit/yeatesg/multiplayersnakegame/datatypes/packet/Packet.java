@@ -1,4 +1,4 @@
-package edu.wit.yeatesg.multiplayersnakegame.packets;
+package edu.wit.yeatesg.multiplayersnakegame.datatypes.packet;
 
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -26,21 +26,21 @@ public abstract class Packet
 	
 	public static Packet parsePacket(String utfData)
 	{
-		int openIndex = utfData.indexOf("<");
-		int closeIndex = utfData.indexOf(">");
-		if (openIndex == 0 && openIndex < closeIndex && closeIndex != utfData.length() - 1)
+		int typeOpenIndex = utfData.indexOf("<");
+		int typeCloseIndex = utfData.indexOf(">");
+		if (typeOpenIndex == 0 && typeOpenIndex < typeCloseIndex && typeCloseIndex != utfData.length() - 1)
 		{
-			 String packetType = utfData.substring(1, closeIndex);
-			 boolean hasPacketData = closeIndex != utfData.length() - 1;
-			 String packetData = hasPacketData ? utfData.substring(closeIndex + 1) : null;
+			 String packetType = utfData.substring(1, typeCloseIndex);
+			 boolean hasPacketData = typeCloseIndex != utfData.length() - 1;
+			 String packetData = hasPacketData ? utfData.substring(typeCloseIndex + 1) : null;
 			 switch (packetType)
 			 {
 			 case "ErrorPacket":
 				 return new ErrorPacket(packetData);
 			 case "MessagePacket":
 				 return new MessagePacket(packetData);
-			 case "UpdateSingleClientPacket":
-				 return new UpdateSingleClientPacket(packetData);
+			 case "SnakeUpdatePacket":
+				 return new SnakeUpdatePacket(packetData);
 			 case "TickPacket":
 				 return new ErrorPacket(packetData);
 			 default:

@@ -1,35 +1,35 @@
-package edu.wit.yeatesg.multiplayersnakegame.datatypes;
+package edu.wit.yeatesg.multiplayersnakegame.datatypes.other;
 
 import java.util.ArrayList;
 
-import edu.wit.yeatesg.multiplayersnakegame.packets.UpdateSingleClientPacket;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.SnakeUpdatePacket;
 
 // No duplicate elements
 
-public class ClientDataSet extends ArrayList<ClientData>
+public class SnakeList extends ArrayList<SnakeData>
 {
 	public static final String REGEX = "/";
 
 	private static final long serialVersionUID = -8714854719041332762L;
 
-	public ClientDataSet(String... params)
+	public SnakeList(String... params)
 	{
 		for (String s : params)
 		{
-			ClientData data = new ClientData(s);
+			SnakeData data = new SnakeData(s);
 			if (!contains(data))
 				add(data);
 		}
 	}
 
-	public ClientDataSet(String splittableString)
+	public SnakeList(String splittableString)
 	{
 		this(splittableString.split(REGEX));
 	}
 	
 	public int indexOf(String s)
 	{
-		for (ClientData data : this)
+		for (SnakeData data : this)
 			if (data.getClientName().equalsIgnoreCase((String) s))
 				return indexOf(data);
 		return -1;
@@ -37,13 +37,13 @@ public class ClientDataSet extends ArrayList<ClientData>
 
 	public boolean contains(String s)
 	{
-		for (ClientData data : this)
+		for (SnakeData data : this)
 			if (data.getClientName().equalsIgnoreCase(s))
 				return true;
 		return false;
 	}
 
-	public ClientData get(String name)
+	public SnakeData get(String name)
 	{
 		int index = indexOf(name);
 		return index != -1 ? get(index) : null;
@@ -54,7 +54,7 @@ public class ClientDataSet extends ArrayList<ClientData>
 	{
 		String s = "";
 		int index = 0;
-		for (ClientData dat : this)
+		for (SnakeData dat : this)
 		{
 			s += dat + (index == size() - 1 ? "" : REGEX);
 			index++;
@@ -62,12 +62,12 @@ public class ClientDataSet extends ArrayList<ClientData>
 		return s;
 	}
 	
-	public void updateBasedOn(UpdateSingleClientPacket pack)
+	public void updateBasedOn(SnakeUpdatePacket pack)
 	{
-		ClientData updated = pack.getClientData();
+		SnakeData updated = pack.getClientData();
 		if (contains(updated.getClientName()))
 		{
-			ClientData updating = get(updated.getClientName());
+			SnakeData updating = get(updated.getClientName());
 			set(indexOf(updating), updated);
 		}
 		else

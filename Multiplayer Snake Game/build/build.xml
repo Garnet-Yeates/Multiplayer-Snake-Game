@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<project default="create_run_jar" name="Create Runnable Jar for Project Multiplayer Snake Game">
+    <property name="dir.buildfile" value="."/>
+    <property name="dir.workspace" value="C:/Users/yeatesg/data_structures"/>
+    <property name="dir.jarfile" value="C:/Users/yeatesg/git/multiplayersnakegamerepo/Multiplayer Snake Game/jars"/>
+	<target name="create_run_jar">
+		<delete file = "${dir.jarfile}/Multiplayer-Snake-Game.jar"/>
+        <jar destfile="${dir.jarfile}/Multiplayer-Snake-Game.jar" filesetmanifest="mergewithoutmain">
+            <manifest>
+                <attribute name="Main-Class" value="edu.wit.yeatesg.multiplayersnakegame.phase1connect.Launch"/>
+                <attribute name="Class-Path" value="."/>
+            </manifest>
+            <fileset dir="C:/Users/yeatesg/git/multiplayersnakegamerepo/Multiplayer Snake Game/bin"/>
+        </jar>
+    </target>
+</project>
