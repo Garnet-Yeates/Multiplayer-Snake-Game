@@ -14,7 +14,8 @@ public abstract class Packet
 	
 	public Packet(String... args)
 	{
-		initFromStringArray(args);
+		if (ReflectionTools.getNumUpdatableFields(this.getClass()) == args.length)
+			initFromStringArray(args);
 	}
 	
 	public Packet(String splittableString)
@@ -71,40 +72,6 @@ public abstract class Packet
 		}
 	}
 	
-	protected String fieldsToString(String regex)
-	{	
-		Field[] fields;
-		fields = this.getClass().getDeclaredFields();
-		int numWritableFields = 0;
-		for (int i = 0; i < fields.length; i++)
-		{
-			if (!fields[i].isAccessible())
-				fields[i].setAccessible(true);
-			if (!Modifier.isStatic(fields[i].getModifiers()))
-				numWritableFields++;
-		}		
-
-		String s = "";
-		int index = 0;
-		for (Field f : fields)
-		{
-			try
-			{					
-				if (!Modifier.isStatic(f.getModifiers()))
-				{
-					Object v = f.get(this);
-					s += v + (index == numWritableFields - 1 ? "" : regex);
-					index++;
-				}
-			}
-			catch (IllegalArgumentException | IllegalAccessException e)
-			{
-				e.printStackTrace();
-			}
-		}
-		return s;
-	}
-	
 	public void setDataStream(DataOutputStream stream)
 	{
 		outputStream = stream;
@@ -118,6 +85,6 @@ public abstract class Packet
 	@Override
 	public String toString()
 	{
-		return fieldsToString(REGEX);
+		return ReflectionTools.fieldsToString(REGEX, this, this.getClass());
 	}
 }

@@ -7,8 +7,8 @@ import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.SnakeData;
 
 class SnakeDataForServer extends SnakeData
 {
-	private Socket socket;
-	private DataOutputStream outputStream;
+	private Socket $socket;
+	private DataOutputStream $outputStream;
 
 	public SnakeDataForServer(SnakeData parent, Socket socket, DataOutputStream outputStream)
 	{
@@ -18,8 +18,8 @@ class SnakeDataForServer extends SnakeData
 				parent.getPointList(),
 				parent.isHost(),
 				parent.isAlive());
-		this.socket = socket;
-		this.outputStream = outputStream;
+		this.$socket = socket;
+		this.$outputStream = outputStream;
 	}
 
 	public SnakeDataForServer(SnakeData parent)
@@ -29,21 +29,21 @@ class SnakeDataForServer extends SnakeData
 
 	public Socket getSocket()
 	{
-		return socket;
+		return $socket;
 	}
 
 	public void setSocket(Socket s)
 	{
-		socket = s;
+		$socket = s;
 	}
 
 	public DataOutputStream getOutputStream()
 	{
-		return outputStream;
+		return $outputStream;
 	}
 
 	public void setOutputStream(DataOutputStream os)
 	{
-		outputStream = os;
+		$outputStream = os;
 	}
 }

@@ -1,7 +1,9 @@
 package edu.wit.yeatesg.multiplayersnakegame.datatypes.other;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.ReflectionTools;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.SnakeUpdatePacket;
 
 // No duplicate elements
@@ -67,8 +69,23 @@ public class SnakeList extends ArrayList<SnakeData>
 		SnakeData updated = pack.getClientData();
 		if (contains(updated.getClientName()))
 		{
-			SnakeData updating = get(updated.getClientName());
-			set(indexOf(updating), updated);
+			SnakeData beingUpdated = get(updated.getClientName());
+			set(indexOf(beingUpdated), updated);
+			ArrayList<Field> fieldsToTransfer = ReflectionTools.getFieldsThatDontUpdate(beingUpdated.getClass());
+			for (int i = 0; i < fieldsToTransfer.size(); i++)
+			{       // Don't update the fields that start with '$', so after the SnakeData is updated in the list
+				try // Set the updated '$' field values back to the non updated ones
+				{
+					Field f = fieldsToTransfer.get(i);
+					f.setAccessible(true);
+					Object beingUpdatedValue = f.get(beingUpdated);
+					f.set(updated, beingUpdatedValue); 
+				}
+				catch (IllegalArgumentException | IllegalAccessException e)
+				{
+					e.printStackTrace();
+				}
+			}
 		}
 		else
 		{

@@ -127,6 +127,7 @@ public class ConnectGUI extends JFrame
 		}
 		catch (Exception e)
 		{
+			server = null;
 			label_statusMessage.setForeground(Color.RED); // We ran into some error on the way, print the error message
 			label_statusMessage.setText(errMsg);
 		}

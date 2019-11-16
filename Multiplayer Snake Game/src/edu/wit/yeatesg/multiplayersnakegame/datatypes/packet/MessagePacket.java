@@ -21,7 +21,7 @@ public class MessagePacket extends Packet
 		sender = args[0];
 		message = args[1];
 	}
-
+	
 	public String getMessage()
 	{
 		return message;

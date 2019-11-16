@@ -2,6 +2,7 @@ package edu.wit.yeatesg.multiplayersnakegame.phase2play;
 
 import java.util.ArrayList;
 
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.Point;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.PointList;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.SnakeData;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.SnakeList;
@@ -23,7 +24,8 @@ public class Client
 				!(text.length() > MAX_NAME_LENGTH) &&
 				!text.contains(Packet.REGEX) &&
 				!text.contains(SnakeData.REGEX) &&
-				!text.contains(SnakeList.REGEX);
+				!text.contains(SnakeList.REGEX) &&
+				!text.contains(Point.REGEX);
 	}
 
 

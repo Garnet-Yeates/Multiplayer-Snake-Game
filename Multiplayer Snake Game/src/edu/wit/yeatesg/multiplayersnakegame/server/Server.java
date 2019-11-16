@@ -9,9 +9,13 @@ import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Random;
 
+import javax.swing.Timer;
+import javax.swing.plaf.SliderUI;
+
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.SnakeData;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.SnakeList;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.ErrorPacket;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.InitiateGamePacket;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.MessagePacket;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.Packet;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.SnakeUpdatePacket;
@@ -187,16 +191,63 @@ public class Server
 		}
 	}
 	
+	
+	private int TICK_RATE = 50;
+	
+	private Timer timer;
+	
+	private boolean gamePaused = true;
+	
 	private void onGameStart()
 	{
-		// TODO implement
-		// The inputstream is now going to be connected to a client, not the lobbyGUIs. So send a clientdatlistupdate
-		// to all the fresh clients so they know what to do
+		gamePaused = false;
+		canPause = true;
+		
+		// Tell the clients to start a timer with that ticks numTicks times before 
+		final int gameStartDelay = 3000;
+		final int numTicks = 3;
+		InitiateGamePacket gameCounterPack = new InitiateGamePacket(0, gameStartDelay, numTicks);
+		gameCounterPack.sendMultiple(connectedClients.getAllOutputStreams());
+		
+		// Start the timer after gameStartDelay and start the game ticks
+		timer = new Timer(TICK_RATE, (e) -> tick());
+		timer.setInitialDelay(gameStartDelay);
+		timer.start();
 	}
+	
+	private int tickNum = 0;
 	
 	private void tick()
 	{
+		tickNum++;
 		
+		// Do snakemovements
+		// Send updated clientdata to all clients
+		
+		// Do snake movements ie update all the SnakeDataForServer stuff
+		// Send update packets to all the clients so the thing can be repainted for them
+	}
+	
+	private boolean canPause = false;
+	
+	public void unPause()
+	{
+		if (!canPause)
+		{
+			timer.start();
+			gamePaused = false;
+			canPause = true;
+		}
+	}
+	
+	public void pause()
+	{
+		if (canPause)
+		{
+			timer.stop();
+			gamePaused = true;
+			canPause = false;
+		}
 	}
 	
 	private void doSnakeMovements()
@@ -231,9 +282,9 @@ public class Server
 	{
 		// Update the client's info on the server
 		connectedClients.updateBasedOn(updatePacket);
-		
+	/*	
 		// Bounce packet back to all clients
-		updatePacket.sendMultiple(connectedClients.getAllOutputStreams());
+		updatePacket.sendMultiple(connectedClients.getAllOutputStreams());*/
 	}
 	
 	private void closeConnection(SnakeDataForServer exiting)

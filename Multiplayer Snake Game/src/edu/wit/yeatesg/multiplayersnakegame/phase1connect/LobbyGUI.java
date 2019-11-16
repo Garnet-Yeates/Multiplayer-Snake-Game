@@ -368,7 +368,7 @@ public class LobbyGUI extends JFrame
 		{
 			return connectedClient;
 		}
-		
+		 
 		private void updateConnectedClientInfo()
 		{
 			nameField.setText(hasConnectedClient() ? connectedClient.getClientName() : "<not connected>");

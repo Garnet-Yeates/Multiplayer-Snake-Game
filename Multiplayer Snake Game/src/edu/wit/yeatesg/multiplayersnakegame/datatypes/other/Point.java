@@ -5,6 +5,8 @@ public class Point
 	private int x;
 	private int y;
 	
+	public static final String REGEX = ",";
+	
 	public Point(int x, int y)
 	{
 		this.x = x;
@@ -15,7 +17,7 @@ public class Point
 	{
 		try
 		{
-			String[] params = string.split(",");
+			String[] params = string.split(REGEX);
 			return new Point(Integer.parseInt(params[0]), Integer.parseInt(params[1]));
 		}
 		catch (Exception e)
@@ -53,6 +55,6 @@ public class Point
 	@Override
 	public String toString()
 	{
-		return x + "," + y;
+		return x + REGEX + y;
 	}
 }

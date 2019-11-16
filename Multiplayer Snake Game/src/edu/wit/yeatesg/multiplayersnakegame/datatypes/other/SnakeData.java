@@ -3,6 +3,8 @@ package edu.wit.yeatesg.multiplayersnakegame.datatypes.other;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.ReflectionTools;
+
 public class SnakeData
 {
 	public static final String REGEX = ":";
@@ -13,6 +15,8 @@ public class SnakeData
 	private PointList pointList;
 	private boolean isHost;
 	private boolean isAlive;
+	
+	private int $dontUpdate1;
 
 	public SnakeData(String name, Color color, Direction direction, PointList pointList, boolean isHost, boolean isAlive)
 	{
@@ -23,7 +27,7 @@ public class SnakeData
 		this.isHost = isHost;
 		this.isAlive = true;
 	}
-
+	
 	public SnakeData(String... params)
 	{
 		this(params[0],
@@ -113,7 +117,7 @@ public class SnakeData
 	@Override
 	public String toString()
 	{
-		return fieldsToString(REGEX, SnakeData.class);
+		return ReflectionTools.fieldsToString(REGEX, this, SnakeData.class);
 	}
 	
 	@Override
