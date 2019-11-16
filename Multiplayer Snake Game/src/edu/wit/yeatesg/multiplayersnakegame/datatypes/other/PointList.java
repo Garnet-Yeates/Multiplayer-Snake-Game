@@ -18,10 +18,10 @@ public class PointList extends ArrayList<Point>
 	
 	public PointList(String... pointArgs)
 	{
+		Point p;
 		for (String pointString : pointArgs)
-		{
-			add(Point.fromString(pointString));
-		}
+			if ((p = Point.fromString(pointString)) != null)
+				add(p);
 	}
 	
 	public PointList(String splittableString)

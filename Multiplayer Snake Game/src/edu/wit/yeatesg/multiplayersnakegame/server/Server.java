@@ -199,6 +199,11 @@ public class Server
 		
 	}
 	
+	private void doSnakeMovements()
+	{
+		
+	}
+	
 	private void onClientQuit(SnakeDataForServer quitter)
 	{
 		if (quitter.isHost())

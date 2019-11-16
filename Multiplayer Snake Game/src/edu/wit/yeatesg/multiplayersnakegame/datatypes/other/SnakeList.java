@@ -11,7 +11,7 @@ public class SnakeList extends ArrayList<SnakeData>
 	public static final String REGEX = "/";
 
 	private static final long serialVersionUID = -8714854719041332762L;
-
+	
 	public SnakeList(String... params)
 	{
 		for (String s : params)

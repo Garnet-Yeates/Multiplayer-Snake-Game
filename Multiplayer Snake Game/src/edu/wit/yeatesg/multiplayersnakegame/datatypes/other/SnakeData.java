@@ -10,20 +10,18 @@ public class SnakeData
 	private String name;
 	private Color color;
 	private Direction direction;
-
-	private Point currentHeadLoc;
-	private Point nextHeadLoc;
-
+	private PointList pointList;
 	private boolean isHost;
+	private boolean isAlive;
 
-	public SnakeData(String name, Color color, Direction direction, Point currentHeadLoc, Point nextHeadLoc, boolean isHost)
+	public SnakeData(String name, Color color, Direction direction, PointList pointList, boolean isHost, boolean isAlive)
 	{
 		this.name = name;
 		this.color = color;
 		this.direction = direction;
-		this.currentHeadLoc = currentHeadLoc;
-		this.nextHeadLoc = nextHeadLoc;
+		this.pointList = pointList;
 		this.isHost = isHost;
+		this.isAlive = true;
 	}
 
 	public SnakeData(String... params)
@@ -31,8 +29,8 @@ public class SnakeData
 		this(params[0],
 				Color.fromString(params[1]),
 				Direction.fromString(params[2]),
-				Point.fromString(params[3]),
-				Point.fromString(params[4]),
+				PointList.fromString(params[3]),
+				Boolean.parseBoolean(params[4]),
 				Boolean.parseBoolean(params[5]));
 	}
 
@@ -40,10 +38,10 @@ public class SnakeData
 	{
 		this.name = "null";
 		this.color = Color.BLACK;
+		this.pointList = new PointList();
 		this.direction = Direction.DOWN;
-		this.currentHeadLoc = new Point(0, 0);
-		this.nextHeadLoc = new Point(0, 0);
 		this.isHost = false;
+		this.isAlive = true;
 	}
 
 	public SnakeData(String splittableString)
@@ -59,6 +57,11 @@ public class SnakeData
 	public void setColor(Color c)
 	{
 		color = c;
+	}
+	
+	public PointList getPointList()
+	{
+		return pointList.clone();
 	}
 
 	public String getClientName()
@@ -81,26 +84,6 @@ public class SnakeData
 		direction = newDir;
 	}
 
-	public Point getHeadLocation()
-	{
-		return currentHeadLoc;
-	}
-
-	public void setHeadLocation(Point newHeadLoc)
-	{
-		currentHeadLoc = newHeadLoc;
-	}
-
-	public Point getNextHeadLocation()
-	{
-		return nextHeadLoc;
-	}
-
-	public void setNextHeadLocation(Point nextHeadLoc)
-	{
-		this.nextHeadLoc = nextHeadLoc;
-	}
-
 	public boolean isHost()
 	{
 		return isHost;
@@ -109,6 +92,16 @@ public class SnakeData
 	public void setIsHost(boolean isHost)
 	{
 		this.isHost = isHost;
+	}
+	
+	public boolean isAlive()
+	{
+		return isAlive;
+	}
+
+	public void setAlive(boolean isAlive)
+	{
+		this.isAlive = isAlive;
 	}
 	
 	@Override
@@ -162,5 +155,10 @@ public class SnakeData
 			}
 		}
 		return s;
+	}
+
+	public void setPointList(PointList pointList)
+	{
+		this.pointList = pointList;		
 	}
 }

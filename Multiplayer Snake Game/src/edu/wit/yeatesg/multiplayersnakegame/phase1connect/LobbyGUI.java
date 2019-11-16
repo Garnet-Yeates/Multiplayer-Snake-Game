@@ -16,6 +16,7 @@ import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.Direction;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.SnakeData;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.SnakeList;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.Point;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.PointList;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.MessagePacket;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.Packet;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.SnakeUpdatePacket;
@@ -58,7 +59,9 @@ public class LobbyGUI extends JFrame
 		this.outputStream = outputStream;
 		allClients = new SnakeList();
 		initFrame();
-
+		ConnectGUI.setLookAndFeel();
+		setVisible(true);
+		
 		Thread inputThread = new Thread(() ->
 		{
 			try
@@ -164,13 +167,13 @@ public class LobbyGUI extends JFrame
 		return null;
 	}
 	
-	JButton button_startGame;
+	private JButton button_startGame;
 	
 	private void initFrame()
 	{
 		setTitle(thisClientName);
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		setBounds(x, y, 304, 284);
+		setBounds(x, y, PlayerPanel.GAP*3 + PlayerPanel.WIDTH*2 + 20, PlayerPanel.GAP*3 + PlayerPanel.HEIGHT*2 + 80);
 		setResizable(false);
 		
 		addWindowListener(new WindowListener()
@@ -196,26 +199,29 @@ public class LobbyGUI extends JFrame
 		contentPane.setLayout(null);
 		setContentPane(contentPane);
 		
+		int panxy = PlayerPanel.GAP;
+		int xinc = PlayerPanel.WIDTH + PlayerPanel.GAP;
+		int yinc = PlayerPanel.HEIGHT + PlayerPanel.GAP;
 		playerPanelList = new ArrayList<>();
-		playerPanelList.add(new PlayerPanel(10, 10, contentPane));
-		playerPanelList.add(new PlayerPanel(150, 10, contentPane));
-		playerPanelList.add(new PlayerPanel(10, 110, contentPane));
-		playerPanelList.add(new PlayerPanel(150, 110, contentPane));
-		
-		JButton button_disconnect = new JButton("Disconnect");
-		button_disconnect.addActionListener((e) -> onDisconnectPress());
-		button_disconnect.setForeground(Color.BLACK);
-		button_disconnect.setBackground(Color.BLACK);
-		button_disconnect.setBounds(10, 211, 130, 23);
-		contentPane.add(button_disconnect);
+		playerPanelList.add(new PlayerPanel(panxy, panxy, contentPane));
+		playerPanelList.add(new PlayerPanel(panxy + xinc, panxy, contentPane));
+		playerPanelList.add(new PlayerPanel(panxy, panxy + yinc, contentPane));
+		playerPanelList.add(new PlayerPanel(panxy + xinc, panxy + yinc, contentPane));
 		
 		button_startGame = new JButton("Start Game");
 		button_startGame.addActionListener((e) -> onStartGamePress());
 		button_startGame.setForeground(Color.BLACK);
 		button_startGame.setBackground(Color.BLACK);
-		button_startGame.setBounds(150, 211, 130, 23);
+		button_startGame.setBounds(PlayerPanel.GAP, PlayerPanel.GAP*2 + 10 + PlayerPanel.HEIGHT*2, PlayerPanel.WIDTH, 25);
 		button_startGame.setEnabled(false);
 		contentPane.add(button_startGame);
+		
+		JButton button_disconnect = new JButton("Disconnect");
+		button_disconnect.addActionListener((e) -> onDisconnectPress());
+		button_disconnect.setForeground(Color.BLACK);
+		button_disconnect.setBackground(Color.BLACK);
+		button_disconnect.setBounds(button_startGame.getX() + PlayerPanel.GAP + button_startGame.getWidth(), button_startGame.getY(), PlayerPanel.WIDTH, 25);
+		contentPane.add(button_disconnect);
 		
 		setVisible(true);
 	}
@@ -224,6 +230,10 @@ public class LobbyGUI extends JFrame
 
 	class PlayerPanel extends JPanel
 	{
+		private static final int WIDTH = 150;
+		private static final int HEIGHT = 105;
+		private static final int GAP = 10;
+		
 		private static final long serialVersionUID = 5816367030492476277L;
 		
 		private int playerNum;
@@ -236,7 +246,7 @@ public class LobbyGUI extends JFrame
 
 			setBackground(new Color(15, 15, 15));
 			setBorder(new MatteBorder(1, 1, 1, 1, (Color) new Color(255, 255, 255)));
-			setBounds(x, y, 130, 90);
+			setBounds(x, y, WIDTH, HEIGHT);
 			setLayout(null);
 
 			JLabel playerNumField = new JLabel("Player " + playerNum);
@@ -248,12 +258,11 @@ public class LobbyGUI extends JFrame
 			nameField = new JLabel();
 			nameField.setForeground(Color.WHITE);
 			nameField.setFont(new Font("Tahoma", Font.PLAIN, 14));
-			nameField.setBounds(5, 30, 115, 20);
+			nameField.setBounds(5, 30, PlayerPanel.WIDTH - 5, 20);
 			add(nameField);
 			
 			updateConnectedClientInfo();
 			
-			setVisible(true);
 			contentPane.add(this);
 		}
 		
@@ -308,6 +317,34 @@ public class LobbyGUI extends JFrame
 			}
 		}
 		
+		private int start_length = 3;
+		
+		public PointList getPointList()
+		{
+			int xMod = 0, yMod = 0;
+			switch (getStartDirection())
+			{
+			case DOWN:
+				yMod = -1;
+				break;
+			case LEFT:
+				xMod = 1;
+				break;
+			case RIGHT:
+				xMod = -1;
+				break;
+			case UP:
+				yMod = 1; 
+				break;
+			}
+			PointList list = new PointList();
+			Point start = getStartPoint();
+			list.add(start);
+			for (int i = 0; i < start_length; i++, list.add(start));
+				start.setXY(start.getX() + xMod, start.getY() + yMod);
+			return list;
+		}
+		
 		private SnakeData connectedClient = null;
 		
 		public void connectClient(SnakeData clientData)
@@ -335,12 +372,24 @@ public class LobbyGUI extends JFrame
 		private void updateConnectedClientInfo()
 		{
 			nameField.setText(hasConnectedClient() ? connectedClient.getClientName() : "<not connected>");
+			if (nameField.getText().equals(thisClientName))
+			{
+				int r = getColor().getRed() + 100;
+				int g = getColor().getGreen() + 100;
+				int b = getColor().getBlue() + 100;
+				r = r > 255 ? 255 : r;
+				g = g > 255 ? 255 : g;
+				b = b > 255 ? 255 : b;
+
+				setBorder(new MatteBorder(1, 1, 1, 1, new Color(r, g, b)));
+	
+			}
 			if (hasConnectedClient())
 			{
 				SnakeData clonedData = this.connectedClient.clone(); // Remember, we don't want the data to actually change
 				clonedData.setColor(getColor());                      // until the server approves it, so modify a clone
 				clonedData.setDirection(getStartDirection());
-// TODO fix fix fix implement implement implement				clonedData.setHeadLocation(getStartPoint());
+				clonedData.setPointList(getPointList());
 				SnakeUpdatePacket pack = new SnakeUpdatePacket(clonedData);
 				pack.setDataStream(outputStream);
 				pack.send();
@@ -357,10 +406,10 @@ public class LobbyGUI extends JFrame
 			
 			if (hasConnectedClient())
 			{
-				int gap = 5;
-				int width = 18;
-				int x = 32;
-				int y = 62;
+				int gap = 6;
+				int width = 22;
+				int x = 36;
+				int y = 64;
 				for (int i = 0; i < 3; i++)
 				{
 					g.fillRect(x, y, width, width);

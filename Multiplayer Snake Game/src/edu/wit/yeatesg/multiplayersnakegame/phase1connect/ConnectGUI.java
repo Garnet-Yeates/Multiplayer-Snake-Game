@@ -3,6 +3,8 @@ package edu.wit.yeatesg.multiplayersnakegame.phase1connect;
 import java.awt.Color;
 import java.awt.EventQueue;
 import java.awt.Font;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -12,8 +14,10 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
+import javax.swing.LookAndFeel;
 import javax.swing.SwingConstants;
 import javax.swing.UIManager;
+import javax.swing.UIManager.LookAndFeelInfo;
 import javax.swing.border.EmptyBorder;
 
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.SnakeData;
@@ -39,8 +43,9 @@ public class ConnectGUI extends JFrame
 
 	public ConnectGUI()
 	{
-		setLookAndFeel();
 		initFrame();
+		setLookAndFeel();
+		setVisible(true);
 	}
 
 	private void onButtonPress(boolean isHost)
@@ -130,8 +135,9 @@ public class ConnectGUI extends JFrame
 	
 	public void initFrame()
 	{
+		setResizable(false);
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		setBounds(100, 100, 223, 169);
+		setBounds(100, 100, 177, 175);
 		contentPane = new JPanel();
 		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
 		setContentPane(contentPane);
@@ -139,7 +145,7 @@ public class ConnectGUI extends JFrame
 
 		field_ip = new JTextField();
 		field_ip.setHorizontalAlignment(SwingConstants.LEFT);
-		field_ip.setBounds(10, 29, 108, 20);
+		field_ip.setBounds(10, 29, 96, 20);
 		contentPane.add(field_ip);
 		field_ip.setColumns(10);
 		field_ip.setText("localhost");
@@ -147,14 +153,26 @@ public class ConnectGUI extends JFrame
 		field_port = new JTextField();
 		field_port.setHorizontalAlignment(SwingConstants.LEFT);
 		field_port.setColumns(10);
-		field_port.setBounds(142, 29, 53, 20);
+		field_port.setBounds(112, 29, 48, 20);
 		field_port.setText("8122");
 		contentPane.add(field_port);
 
 		field_name = new JTextField();
 		field_name.setText("Nom");
 		field_name.setColumns(10);
-		field_name.setBounds(10, 70, 108, 20);
+		field_name.setBounds(10, 70, 150, 20);
+		field_name.addKeyListener(new KeyListener() 
+		{
+			@Override
+			public void keyTyped(KeyEvent e)
+			{
+				if (field_name.getText().length() >= Client.MAX_NAME_LENGTH)
+					e.consume();
+			}
+			
+			public void keyReleased(KeyEvent e) { }
+			public void keyPressed(KeyEvent e) { }
+		});
 		contentPane.add(field_name);
 
 		JLabel label_name = new JLabel("Name");
@@ -164,7 +182,7 @@ public class ConnectGUI extends JFrame
 
 		label_statusMessage = new JLabel("");
 		label_statusMessage.setForeground(Color.RED);
-		label_statusMessage.setBounds(10, 101, 112, 14);
+		label_statusMessage.setBounds(10, 128, 148, 14);
 		contentPane.add(label_statusMessage);
 
 		JLabel label_ipAddress = new JLabel("IP Address");
@@ -174,32 +192,26 @@ public class ConnectGUI extends JFrame
 
 		JLabel label_port = new JLabel("Port");
 		label_port.setFont(new Font("Tahoma", Font.BOLD, 11));
-		label_port.setBounds(142, 11, 53, 14);
+		label_port.setBounds(116, 11, 53, 14);
 		contentPane.add(label_port);
 
-		JLabel label_Colon = new JLabel(":\r\n");
-		label_Colon.setFont(new Font("Tahoma", Font.PLAIN, 32));
-		label_Colon.setBounds(124, 16, 13, 36);
-		contentPane.add(label_Colon);
-
 		btn_Connect = new JButton("Connect");
-		btn_Connect.setBounds(125, 69, 76, 23);
+		btn_Connect.setBounds(75, 101, 85, 23);
 		btn_Connect.addActionListener((e) -> onButtonPress(false));
 		contentPane.add(btn_Connect);
 
 		btn_Host = new JButton("Host");
-		btn_Host.setBounds(125, 95, 76, 23);
+		btn_Host.setBounds(10, 101, 61, 23);
 		btn_Host.addActionListener((e) -> onButtonPress(true));
 		contentPane.add(btn_Host);
-
-		setVisible(true);
 	}
 
 	public static void setLookAndFeel()
 	{
 		try
 		{
-			UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+			LookAndFeelInfo[] feels = UIManager.getInstalledLookAndFeels();
+			UIManager.setLookAndFeel(feels[3].getClassName());
 		} 
 		catch (Exception e)
 		{

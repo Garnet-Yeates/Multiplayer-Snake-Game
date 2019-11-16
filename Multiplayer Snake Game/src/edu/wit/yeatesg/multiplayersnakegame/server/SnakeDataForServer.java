@@ -15,9 +15,9 @@ class SnakeDataForServer extends SnakeData
 		super(parent.getClientName(),
 				parent.getColor(),
 				parent.getDirection(),
-				parent.getHeadLocation(),
-				parent.getNextHeadLocation(),
-				parent.isHost());
+				parent.getPointList(),
+				parent.isHost(),
+				parent.isAlive());
 		this.socket = socket;
 		this.outputStream = outputStream;
 	}

@@ -13,8 +13,41 @@ public class Point
 	
 	public static Point fromString(String string)
 	{
-		String[] params = string.split(",");
-		return new Point(Integer.parseInt(params[0]), Integer.parseInt(params[1]));
+		try
+		{
+			String[] params = string.split(",");
+			return new Point(Integer.parseInt(params[0]), Integer.parseInt(params[1]));
+		}
+		catch (Exception e)
+		{
+			return null;
+		}
+	}
+	
+	public void setXY(int x, int y)
+	{
+		this.x = x;
+		this.y = y;
+	}
+	
+	public void setX(int x)
+	{
+		this.x = x;
+	}
+	
+	public void setY(int y)
+	{
+		this.y = y;
+	}
+	
+	public int getX()
+	{
+		return x;
+	}
+	
+	public int getY()
+	{
+		return y;
 	}
 	
 	@Override
