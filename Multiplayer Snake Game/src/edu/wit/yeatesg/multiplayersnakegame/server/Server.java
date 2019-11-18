@@ -1,5 +1,8 @@
 package edu.wit.yeatesg.multiplayersnakegame.server;
 
+import java.awt.EventQueue;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -8,19 +11,28 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Random;
+import java.util.TimerTask;
+import java.util.TreeMap;
 
+import javax.sound.midi.Receiver;
 import javax.swing.Timer;
 import javax.swing.plaf.SliderUI;
 
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.Point;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.PointList;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.SnakeData;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.SnakeList;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.ErrorPacket;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.InitiateGamePacket;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.MessagePacket;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.Packet;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.PacketListener;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.PacketReceiver;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.SnakeUpdatePacket;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.TickPacket;
+import edu.wit.yeatesg.multiplayersnakegame.phase2play.Client;
 
-public class Server
+public class Server implements ActionListener, PacketListener
 {
 	private static final Random R = new Random();
 
@@ -28,7 +40,7 @@ public class Server
 
 	private String serverName;
 
-	private SnakeListForServer connectedClients;
+	private SnakeList connectedClients;
 		
 	private int port;
 	
@@ -36,7 +48,7 @@ public class Server
 	{	
 		this.port = port;
 		serverName = "Server";
-		connectedClients = new SnakeListForServer();
+		connectedClients = new SnakeList();
 	}
 	
 	private boolean isRunning = true;
@@ -77,6 +89,8 @@ public class Server
 		}
 	}
 	
+	private PacketReceiver receiver;
+	
 	/**
 	 * Every time a new Client is connected, a new thread is created with this as the Runnable. The
 	 * reason for using multi-threading is so the server can handle multiple client connections at once
@@ -89,7 +103,7 @@ public class Server
 	{
 		private boolean active = true;
 		private Socket s;
-		private SnakeDataForServer client;
+		private SnakeData client;
 
 		public PacketReceiveThread(Socket s)
 		{
@@ -103,12 +117,19 @@ public class Server
 			{
 				DataInputStream inputStream = new DataInputStream(s.getInputStream());
 				DataOutputStream outputStream = new DataOutputStream(s.getOutputStream());
-
-				SnakeUpdatePacket clientRequestPacket = (SnakeUpdatePacket) Packet.parsePacket(inputStream.readUTF());
-				SnakeData data = clientRequestPacket.getClientData();
-				String clientName = data.getClientName();
-				SnakeDataForServer justJoinedClientData = new SnakeDataForServer(data, s, outputStream); 
 				
+				receiver = new PacketReceiver(inputStream, outputStream, Server.this);
+				receiver.setReceiving("Serer");
+				
+				receiver.manualReceive();
+				SnakeUpdatePacket clientRequestPacket = (SnakeUpdatePacket) receiver.manualConsumePacket();
+				
+				SnakeData justJoinedClientData = clientRequestPacket.getClientData();
+	
+				justJoinedClientData.setOutputStream(outputStream);
+				justJoinedClientData.setSocket(s);
+				String clientName = justJoinedClientData.getClientName();
+								
 				justJoinedClientData.setIsHost(connectedClients.size() == 0);
 				boolean isFull = connectedClients.size() == 4;
 				boolean clientNameTaken = connectedClients.contains(clientName);				
@@ -118,6 +139,8 @@ public class Server
 					MessagePacket accepted = new MessagePacket(serverName, "CONNECTION_ACCEPT");
 					accepted.setDataStream(justJoinedClientData.getOutputStream());
 					accepted.send(); // After this is received, the client's while loop will start
+										
+					// The server is now connected to the LobbyGUI
 					
 					// Send the ClientData of the clients that were already connected to the newly connected client
 					for (SnakeData client : connectedClients)
@@ -140,8 +163,7 @@ public class Server
 					MessagePacket notifyJoin = new MessagePacket(justJoinedClientData.getClientName(), "SOMEONE_JOIN");
 					notifyJoin.sendMultiple(connectedClients.getAllOutputStreams());
 					
-					while (active) // Constantly wait for new packets from this client on this separate Thread
-						onPacketReceive(Packet.parsePacket(inputStream.readUTF()));
+					receiver.startAutoReceiving();
 				}
 				else if (isFull)
 				{
@@ -166,60 +188,90 @@ public class Server
 		{
 			active = false;
 		}
-	}
+	}	
 
-	private void onPacketReceive(Packet packet)
+	public void onPacketReceive(Packet packetReceiving)
 	{
-		if (packet instanceof MessagePacket)
+		if (packetReceiving instanceof MessagePacket)
 		{	
-			MessagePacket msgPacket = (MessagePacket) packet;
-			SnakeDataForServer sender = (SnakeDataForServer) connectedClients.get(msgPacket.getSender());
+			MessagePacket msgPacket = (MessagePacket) packetReceiving;
+			SnakeData sender = connectedClients.get(msgPacket.getSender());
 			switch (msgPacket.getMessage())
 			{
-			case "START_GAME":
+			case "GAME_START":
 				if (sender.isHost())
-				onGameStart();
+				{
+					MessagePacket gameStartResponse = new MessagePacket(serverName, "GAME_START"); 
+					System.out.println(connectedClients.size());
+					gameStartResponse.sendMultiple(connectedClients.getAllOutputStreams());
+					onGameStart();
+				}
+
 				break;
 			case "I_EXIT":
 				onClientQuit(sender);
 				break;
 			}
 		}
-		else if (packet instanceof SnakeUpdatePacket)
+		else if (packetReceiving instanceof SnakeUpdatePacket)
 		{
-			onReceiveClientDataUpdate((SnakeUpdatePacket) packet);
-		}
+			onReceiveClientDataUpdate((SnakeUpdatePacket) packetReceiving);
+		}	
 	}
 	
-	
-	private int TICK_RATE = 50;
+	private int TICK_RATE = 120;
 	
 	private Timer timer;
 	
 	private boolean gamePaused = true;
 	
 	private void onGameStart()
-	{
+	{		
+		System.out.println("GAME STAHT");
 		gamePaused = false;
 		canPause = true;
 		
-		// Tell the clients to start a timer with that ticks numTicks times before 
-		final int gameStartDelay = 3000;
+		/*
+		 * Starts InitiateGamePacket to the clients which tells them to start a timer that had
+		 * numTicks ticks, is on tick 0 for initialDelay milliseconds, and is on each subsequent
+		 * tick for [(gameStartDelay - initialDelay) / numTicks] milliseconds. At each tick,
+		 * something different is painted
+		 */
+		final int gameStartDelay = 4000;
 		final int numTicks = 3;
-		InitiateGamePacket gameCounterPack = new InitiateGamePacket(0, gameStartDelay, numTicks);
+		final int initialDelay = 1000;
+		InitiateGamePacket gameCounterPack = new InitiateGamePacket(initialDelay, gameStartDelay, numTicks);
 		gameCounterPack.sendMultiple(connectedClients.getAllOutputStreams());
-		
+				
 		// Start the timer after gameStartDelay and start the game ticks
 		timer = new Timer(TICK_RATE, (e) -> tick());
 		timer.setInitialDelay(gameStartDelay);
-		timer.start();
+	//	timer.start();
+	}
+	
+	@Override
+	public void actionPerformed(ActionEvent e)
+	{
+		tick();
 	}
 	
 	private int tickNum = 0;
 	
 	private void tick()
 	{
+		System.out.println("SERVER TICK");
+		doSnakeMovements();
+		updateAllClients();
+		TickPacket pack = new TickPacket();
+		pack.sendMultiple(connectedClients.getAllOutputStreams());
 		tickNum++;
+
+		//	doSnakeMovements();
+		//	updateAllClients();
+	
+
+		
+	//	updateAllClients();
 		
 		// Do snakemovements
 		// Send updated clientdata to all clients
@@ -228,9 +280,45 @@ public class Server
 		// Send update packets to all the clients so the thing can be repainted for them
 	}
 	
+	private void doSnakeMovements()
+	{
+		for (SnakeData dat : connectedClients)
+		{
+			PointList points = dat.getPointList();
+			PointList clone = points.clone();
+			for (int i = 1; i < points.size(); i++)
+				points.set(i, clone.get(i - 1));
+			Point head = clone.get(0);
+			Point dir = dat.getDirection().getVector();
+			head = new Point(head.getX() + dir.getX(), head.getY() + dir.getY());
+			if (head.getX() > Client.NUM_HORIZONTAL_UNITS - 1)
+				head.setX(0);
+			else if (head.getX() < 0)
+				head.setX(Client.NUM_HORIZONTAL_UNITS - 1);
+			
+			if (head.getY() > Client.NUM_VERTICAL_UNITS - 1)
+				head.setY(0);
+			else if (head.getY() < 0)
+				head.setY(Client.NUM_VERTICAL_UNITS - 1);
+			points.set(0, head);
+			dat.setPointList(points);
+		}
+	}
+	
+	private void updateAllClients()
+	{
+		for (SnakeData client : connectedClients)
+		{
+			SnakeUpdatePacket updatePack = new SnakeUpdatePacket(client);
+			updatePack.sendMultiple(connectedClients.getAllOutputStreams());//*/
+			//MessagePacket msg = new MessagePacket(serverName, "fikeeydikeyy");
+			//msg.sendMultiple(connectedClients.getAllOutputStreams());
+		}
+	}
+	
 	private boolean canPause = false;
 	
-	public void unPause()
+	/*public void unPause()
 	{
 		if (!canPause)
 		{
@@ -248,14 +336,9 @@ public class Server
 			gamePaused = true;
 			canPause = false;
 		}
-	}
+	}*/
 	
-	private void doSnakeMovements()
-	{
-		
-	}
-	
-	private void onClientQuit(SnakeDataForServer quitter)
+	private void onClientQuit(SnakeData quitter)
 	{
 		if (quitter.isHost())
 		{
@@ -263,6 +346,7 @@ public class Server
 			response.sendMultiple(connectedClients.getAllOutputStreams());
 	
 			closeAllConnections();
+						
 			System.exit(0);
 		}
 		else
@@ -282,12 +366,12 @@ public class Server
 	{
 		// Update the client's info on the server
 		connectedClients.updateBasedOn(updatePacket);
-	/*	
+	
 		// Bounce packet back to all clients
-		updatePacket.sendMultiple(connectedClients.getAllOutputStreams());*/
+		updatePacket.sendMultiple(connectedClients.getAllOutputStreams());
 	}
 	
-	private void closeConnection(SnakeDataForServer exiting)
+	private void closeConnection(SnakeData exiting)
 	{
 		try
 		{
@@ -299,10 +383,10 @@ public class Server
 	
 	private void closeAllConnections()
 	{
-		ArrayList<SnakeDataForServer> copy = new ArrayList<>();
+		ArrayList<SnakeData> copy = new ArrayList<>();
 		for (SnakeData dat : connectedClients) // Avoid ConcurrentModificationException here
-			copy.add((SnakeDataForServer) dat);
-		for (SnakeDataForServer dat : copy)
+			copy.add(dat);
+		for (SnakeData dat : copy)
 			closeConnection(dat);
 	}
 }

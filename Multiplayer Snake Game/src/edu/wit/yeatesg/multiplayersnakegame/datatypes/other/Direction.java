@@ -1,8 +1,16 @@
 package edu.wit.yeatesg.multiplayersnakegame.datatypes.other;
 
+
 public enum Direction
 {
-	UP, DOWN, LEFT, RIGHT;
+	UP(new Point(0, -1)), DOWN(new Point(0, 1)), LEFT(new Point(-1, 0)), RIGHT(new Point(1, 0));
+	
+	private Point vec;
+	
+	private Direction(Point vec)
+	{
+		this.vec = vec;
+	}
 	
 	public static Direction fromString(String string)
 	{
@@ -20,4 +28,10 @@ public enum Direction
 			return null;
 		}
 	}
+	
+	public Point getVector()
+	{
+		return Point.fromString(vec.toString());
+	}
+	
 }

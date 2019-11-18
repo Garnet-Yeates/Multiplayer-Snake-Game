@@ -53,6 +53,12 @@ public class Point
 	}
 	
 	@Override
+	public Point clone()
+	{
+		return new Point(x, y);
+	}
+	
+	@Override
 	public String toString()
 	{
 		return x + REGEX + y;

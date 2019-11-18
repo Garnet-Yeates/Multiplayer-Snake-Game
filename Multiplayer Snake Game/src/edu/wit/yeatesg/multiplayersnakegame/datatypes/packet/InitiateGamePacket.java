@@ -2,15 +2,14 @@ package edu.wit.yeatesg.multiplayersnakegame.datatypes.packet;
 
 public class InitiateGamePacket extends Packet
 {
-	private int initialDelay = 0;
-	private int totalDelay = 0;
-	private int numCounts = 0;
-	private int tickRate = 0;
+	private int initialDelay;
+	private int totalDelay;
+	private int numCounts;
+	private int tickRate;
 	
 	public InitiateGamePacket(String... paramsAsString)
 	{
 		super(paramsAsString);
-		updateTickRate();
 	}
 	
 	public InitiateGamePacket(int initialDelay, int totalDelay, int numCounts)
@@ -23,7 +22,17 @@ public class InitiateGamePacket extends Packet
 		super(splittable.split(REGEX));
 	}
 	
-	public int getNumCounts()
+	@Override
+	protected void initFromStringArray(String[] args)
+	{
+		initialDelay = Integer.parseInt(args[0]);
+		totalDelay = Integer.parseInt(args[1]);
+		numCounts = Integer.parseInt(args[2]);
+		tickRate = Integer.parseInt(args[3]);
+		updateTickRate();
+	}
+	
+	public int getNumTicks()
 	{
 		return numCounts;
 	}
@@ -67,13 +76,5 @@ public class InitiateGamePacket extends Packet
 	public int getTickRate()
 	{
 		return tickRate;
-	}
-
-	@Override
-	protected void initFromStringArray(String[] args)
-	{
-		numCounts = Integer.parseInt(args[0]);
-		totalDelay = Integer.parseInt(args[1]);
-		initialDelay = Integer.parseInt(args[2]);
 	}
 }

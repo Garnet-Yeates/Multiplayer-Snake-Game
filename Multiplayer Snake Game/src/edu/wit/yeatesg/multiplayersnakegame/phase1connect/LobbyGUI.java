@@ -5,6 +5,7 @@ import java.awt.EventQueue;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
+import javax.swing.Timer;
 import javax.swing.WindowConstants;
 import javax.swing.border.EmptyBorder;
 import javax.swing.JLabel;
@@ -17,9 +18,13 @@ import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.SnakeData;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.SnakeList;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.Point;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.PointList;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.InitiateGamePacket;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.MessagePacket;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.Packet;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.PacketListener;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.PacketReceiver;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.SnakeUpdatePacket;
+import edu.wit.yeatesg.multiplayersnakegame.phase2play.Client;
 import edu.wit.yeatesg.multiplayersnakegame.phase2play.GameGUI;
 import edu.wit.yeatesg.multiplayersnakegame.server.Server;
 
@@ -32,64 +37,57 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.TreeMap;
 
 import javax.swing.JButton;
 
-public class LobbyGUI extends JFrame
+public class LobbyGUI extends JFrame implements PacketListener
 {
 	private static final long serialVersionUID = 4339194739358327310L;
 
 	private JPanel contentPane;	
-
-	private boolean gameStarted = false;
 	
-	private String thisClientName;
 	private SnakeList allClients;
+	private SnakeData thisClient;
+	private String thisClientName;
+	
 	private DataOutputStream outputStream;
+	private DataInputStream inputStream;
+	private Socket socket;
+	
+	private PacketReceiver receiver;
 	
 	private int x;
 	private int y;
 	
-	public LobbyGUI(String clientName, Socket clientSocket, DataInputStream inputStream, DataOutputStream outputStream, String serverName, String serverPort, int x, int y)
+	public LobbyGUI(String clientName, PacketReceiver receiver, Socket clientSocket, String serverName, String serverPort, int x, int y)
 	{
+		initFrame();
+		allClients = new SnakeList();
+		ConnectGUI.setLookAndFeel();
+		setVisible(true);
 		this.x = x;
 		this.y = y;
 		setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
 		thisClientName = clientName;
-		this.outputStream = outputStream;
-		allClients = new SnakeList();
-		initFrame();
-		ConnectGUI.setLookAndFeel();
-		setVisible(true);
+		socket = clientSocket;
+		outputStream = receiver.getOutputStream();
+		this.receiver = receiver;
 		
-		Thread inputThread = new Thread(() ->
-		{
-			try
-			{
-				while (!gameStarted)
-				{
-					System.out.println("waiting for packet");
-					Packet packetReceiving = Packet.parsePacket(inputStream.readUTF());
-					System.out.println(packetReceiving.getUTF());
-					onPacketReceive(packetReceiving);
-				}						
-			}
-			catch (IOException e)
-			{
-				System.out.println(e.getStackTrace());
-			}
-		});		
-
-		inputThread.start();
+		receiver.setReceiving(clientName);
+		receiver.setListener(this);
+		receiver.startAutoReceiving();				
 	}
-
-	boolean firstUpdatePacketReceived = false;
 	
-	private void onPacketReceive(Packet packetReceiving)
+	public void onPacketReceive(Packet packetReceiving)
 	{
+		System.out.println("Lobby Receive -> " + packetReceiving);
 		if (packetReceiving instanceof SnakeUpdatePacket)
 		{
 			allClients.updateBasedOn((SnakeUpdatePacket) packetReceiving);
+			for (SnakeData dat : allClients)
+				if (thisClient == null && dat.getClientName().equals(thisClientName))
+					thisClient = dat;
 		}
 		else if (packetReceiving instanceof MessagePacket)
 		{
@@ -109,12 +107,14 @@ public class LobbyGUI extends JFrame
 				onGameStart();
 				break;
 			}
-		}
+		}	
 	}
 	
 	private void onStartGamePress()
 	{
-		
+		MessagePacket startGamePacket = new MessagePacket(thisClientName, "GAME_START");
+		startGamePacket.setDataStream(outputStream);
+		startGamePacket.send();
 	}
 	
 	private void onDisconnectPress()
@@ -126,7 +126,9 @@ public class LobbyGUI extends JFrame
 
 	private void onGameStart()
 	{
-		// Open a GameGUI on the port. Make sure the server sends all the clientData to the newly created GameGUI's!
+		Client client = new Client(socket, receiver, allClients, thisClient);
+		new GameGUI(client).setVisible(true);
+		dispose();
 	}
 
 	private void onExit()
@@ -305,13 +307,13 @@ public class LobbyGUI extends JFrame
 			switch (playerNum)
 			{
 			case 1:
-				return new Point(2 + (GameGUI.SSL - 1), 2);
+				return new Point(1 + (Client.SSL - 1), 1);
 			case 2:
-				return new Point(GameGUI.NUM_HORIZONTAL_SPACES - 3 - (GameGUI.SSL - 1), GameGUI.NUM_VERTICAL_SPACES - 3);
+				return new Point(Client.NUM_HORIZONTAL_SPACES - 2 - (Client.SSL - 1), Client.NUM_VERTICAL_SPACES - 3);
 			case 3:
-				return new Point(GameGUI.NUM_HORIZONTAL_SPACES - 3, 2 + (GameGUI.SSL - 1));
+				return new Point(Client.NUM_HORIZONTAL_SPACES - 3, 1 + (Client.SSL - 1));
 			case 4:
-				return new Point(2, GameGUI.NUM_VERTICAL_SPACES - 3 - (GameGUI.SSL - 1));
+				return new Point(1, Client.NUM_VERTICAL_SPACES - 3 - (Client.SSL - 1));
 			default:
 				return null;
 			}
@@ -339,9 +341,12 @@ public class LobbyGUI extends JFrame
 			}
 			PointList list = new PointList();
 			Point start = getStartPoint();
-			list.add(start);
-			for (int i = 0; i < start_length; i++, list.add(start));
+			list.add(start.clone());
+			for (int i = 0; i < start_length - 1; i++)
+			{
 				start.setXY(start.getX() + xMod, start.getY() + yMod);
+				list.add(start.clone());
+			}
 			return list;
 		}
 		
@@ -382,11 +387,10 @@ public class LobbyGUI extends JFrame
 				b = b > 255 ? 255 : b;
 
 				setBorder(new MatteBorder(1, 1, 1, 1, new Color(r, g, b)));
-	
 			}
 			if (hasConnectedClient())
 			{
-				SnakeData clonedData = this.connectedClient.clone(); // Remember, we don't want the data to actually change
+				SnakeData clonedData = connectedClient.clone(); // Remember, we don't want the data to actually change
 				clonedData.setColor(getColor());                      // until the server approves it, so modify a clone
 				clonedData.setDirection(getStartDirection());
 				clonedData.setPointList(getPointList());

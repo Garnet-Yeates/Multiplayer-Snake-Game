@@ -9,6 +9,8 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
+import java.util.TreeMap;
+
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -24,11 +26,13 @@ import edu.wit.yeatesg.multiplayersnakegame.datatypes.other.SnakeData;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.ErrorPacket;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.MessagePacket;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.Packet;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.PacketListener;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.PacketReceiver;
 import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.SnakeUpdatePacket;
 import edu.wit.yeatesg.multiplayersnakegame.phase2play.Client;
 import edu.wit.yeatesg.multiplayersnakegame.server.Server;
 
-public class ConnectGUI extends JFrame
+public class ConnectGUI extends JFrame implements PacketListener
 {
 	private static final long serialVersionUID = 1L;
 
@@ -96,7 +100,7 @@ public class ConnectGUI extends JFrame
 			Socket clientSocket = new Socket(field_ip.getText(), Integer.parseInt(field_port.getText()));
 			DataInputStream inputStream = new DataInputStream(clientSocket.getInputStream());
 			DataOutputStream outputStream = new DataOutputStream(clientSocket.getOutputStream());
-
+			
 			// Send a request packet to the server
 			SnakeData data = new SnakeData();
 			data.setName(field_name.getText());
@@ -104,9 +108,14 @@ public class ConnectGUI extends JFrame
 			Packet requestPacket = new SnakeUpdatePacket(data);
 			requestPacket.setDataStream(outputStream);
 			requestPacket.send();
-
-			Packet responsePacket = Packet.parsePacket(inputStream.readUTF());
-
+			
+			PacketReceiver receiver = new PacketReceiver(inputStream, outputStream, this);
+			receiver.setReceiving("ConnectGUI");
+			receiver.manualReceive();
+			
+			Packet responsePacket = receiver.manualConsumePacket();
+			System.out.println(responsePacket + " RESP");
+			
 			if (responsePacket instanceof ErrorPacket) // If the server responds with an error (connection was denied for some reason)
 			{
 				ErrorPacket errPacket = (ErrorPacket) responsePacket;
@@ -121,7 +130,7 @@ public class ConnectGUI extends JFrame
 				String connectedServerName = serverResponse.getSender();
 				String connectedServerPort = serverResponse.getMessage();
 
-				new LobbyGUI(field_name.getText(), clientSocket, inputStream, outputStream, connectedServerName, connectedServerPort, getX(), getY());
+				new LobbyGUI(field_name.getText(), receiver, clientSocket, connectedServerName, connectedServerPort, getX(), getY());
 				dispose(); // We are now done with this GUI
 			}
 		}
@@ -133,6 +142,8 @@ public class ConnectGUI extends JFrame
 		}
 		btn_Host.setEnabled(true);
 	}
+	
+	public void onPacketReceive(Packet pack) { } 
 	
 	public void initFrame()
 	{
@@ -219,4 +230,6 @@ public class ConnectGUI extends JFrame
 			e.printStackTrace();
 		}
 	}
+	
+
 }

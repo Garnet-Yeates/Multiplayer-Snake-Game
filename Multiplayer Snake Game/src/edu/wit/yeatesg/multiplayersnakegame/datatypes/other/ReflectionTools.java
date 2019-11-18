@@ -1,4 +1,4 @@
-package edu.wit.yeatesg.multiplayersnakegame.datatypes.packet;
+package edu.wit.yeatesg.multiplayersnakegame.datatypes.other;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;

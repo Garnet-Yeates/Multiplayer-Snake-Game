@@ -1,23 +1,34 @@
 package edu.wit.yeatesg.multiplayersnakegame.datatypes.other;
 
+import java.awt.Graphics;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.DataOutputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.net.Socket;
+import java.util.ArrayList;
 
-import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.ReflectionTools;
+import javax.swing.Timer;
+
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.buffs.BuffAnimationScript;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.BuffPickupPacket;
+import edu.wit.yeatesg.multiplayersnakegame.datatypes.packet.SnakeUpdatePacket;
+import edu.wit.yeatesg.multiplayersnakegame.phase2play.Client;
 
 public class SnakeData
 {
-	public static final String REGEX = ":";
-
-	private String name;
-	private Color color;
-	private Direction direction;
-	private PointList pointList;
-	private boolean isHost;
-	private boolean isAlive;
+	public static void main(String[] args) {
+		SnakeData juan = new SnakeData("Jahn", Color.YELLOW, Direction.RIGHT, new PointList(new Point(1,1), new Point(2,2)), true, true);
+		SnakeData tooh = new SnakeData("Won", Color.GREEN, Direction.UP, new PointList(new Point(3,3), new Point(2,2)), true, true);
+		tooh.$outputStream = new DataOutputStream(System.out);
+		
+		tooh.updateBasedOn(new SnakeUpdatePacket(juan));
+		System.out.println(tooh.$outputStream + " " + tooh);
+	}
 	
-	private int $dontUpdate1;
-
+	public static final String REGEX = ":";
+	
 	public SnakeData(String name, Color color, Direction direction, PointList pointList, boolean isHost, boolean isAlive)
 	{
 		this.name = name;
@@ -27,7 +38,7 @@ public class SnakeData
 		this.isHost = isHost;
 		this.isAlive = true;
 	}
-	
+
 	public SnakeData(String... params)
 	{
 		this(params[0],
@@ -47,11 +58,22 @@ public class SnakeData
 		this.isHost = false;
 		this.isAlive = true;
 	}
-
+	
 	public SnakeData(String splittableString)
 	{
 		this(splittableString.split(REGEX));
 	}
+	
+	
+	// Fields that are shared/updated/used between client/server
+	
+	
+	private String name;
+	private Color color;
+	private Direction direction;
+	private PointList pointList;
+	private boolean isHost;
+	private boolean isAlive;
 
 	public Color getColor()
 	{
@@ -62,7 +84,7 @@ public class SnakeData
 	{
 		color = c;
 	}
-	
+
 	public PointList getPointList()
 	{
 		return pointList.clone();
@@ -97,7 +119,7 @@ public class SnakeData
 	{
 		this.isHost = isHost;
 	}
-	
+
 	public boolean isAlive()
 	{
 		return isAlive;
@@ -107,7 +129,96 @@ public class SnakeData
 	{
 		this.isAlive = isAlive;
 	}
+
+
+	// Server fields and methods, not updated when updateBasedOn(SnakeUpdatePacket pack) is called
+
+
+	private DataOutputStream $outputStream;
+	private Socket $socket;
 	
+	public boolean hasOutputStream()
+	{
+		return $outputStream != null;
+	}
+	
+	public DataOutputStream getOutputStream()
+	{
+		return $outputStream;
+	}
+
+	public void setOutputStream(DataOutputStream outputStream)
+	{
+		$outputStream = outputStream;
+	}
+
+	public Socket getSocket()
+	{
+		return $socket;
+	}
+
+	public void setSocket(Socket socket)
+	{
+		$socket = socket;
+	}
+	
+	
+	// Client fields and methods, not updated when updateBasedOn(SnakeUpdatePacket pack) is called
+	
+	
+	private BuffAnimationScript $currentBuffAnimationScript;
+	
+	public void setBuffAnimationScript(BuffAnimationScript script)
+	{
+		$currentBuffAnimationScript = script;
+	}
+	
+	public void endBuffAnimationScript()
+	{
+		$currentBuffAnimationScript = null;
+	}
+	
+	public void draw(Graphics g)
+	{
+		if ($currentBuffAnimationScript != null)
+			$currentBuffAnimationScript.drawSnake(g);
+		else
+			drawSnakeNormally(g);
+	}
+	
+	private void drawSnakeNormally(Graphics g)
+	{
+		for (Point segmentLoc : pointList)
+		{
+			Point drawCoords = Client.getPixelCoords(segmentLoc);
+			g.setColor(color);
+			g.fillRect(drawCoords.getX(), drawCoords.getY(), Client.UNIT_SIZE, Client.UNIT_SIZE);
+		}
+	}
+
+	// The buff timers are going to be ehre
+
+	public void updateBasedOn(SnakeUpdatePacket pack)
+	{
+		SnakeData updated = pack.getClientData();
+
+		ArrayList<Field> fieldsToTransfer = ReflectionTools.getFieldsThatUpdate(SnakeData.class);
+		for (int i = 0; i < fieldsToTransfer.size(); i++)
+		{       // Update the fields of this object with the corresponding fields of the updated
+			try // SnakeData object. Don't update fields that begin with $
+			{
+				Field f = fieldsToTransfer.get(i);
+				f.setAccessible(true);
+				Object updatedValue = f.get(updated);
+				f.set(this, updatedValue); 
+			}
+			catch (IllegalArgumentException | IllegalAccessException e)
+			{
+				e.printStackTrace();
+			}
+		}
+	}
+
 	@Override
 	public boolean equals(Object obj)
 	{
@@ -119,46 +230,11 @@ public class SnakeData
 	{
 		return ReflectionTools.fieldsToString(REGEX, this, SnakeData.class);
 	}
-	
+
 	@Override
 	public SnakeData clone()
 	{
 		return new SnakeData(toString());
-	}
-
-	public String fieldsToString(String regex, Class<? extends SnakeData> type)
-	{
-		Field[] fields = type.getDeclaredFields();
-
-		// Determine the number of instance fields
-		int numInstanceFields = 0;
-		for (int i = 0; i < fields.length; i++)
-		{
-			if (!fields[i].isAccessible())
-				fields[i].setAccessible(true);
-			if (!Modifier.isStatic(fields[i].getModifiers()) && fields[i].getDeclaringClass() == type)
-				numInstanceFields++;
-		}		
-		
-		String s = "";
-		int index = 0;
-		for (Field f : fields)
-		{
-			try
-			{					
-				if (!Modifier.isStatic(f.getModifiers()) && f.getDeclaringClass() == SnakeData.class) // Add all instance field values to the String, separated by regex
-				{
-					Object v = f.get(this);
-					s += v + (index == numInstanceFields - 1 ? "" : regex);
-					index++;
-				}
-			}
-			catch (IllegalArgumentException | IllegalAccessException e)
-			{
-				e.printStackTrace();
-			}
-		}
-		return s;
 	}
 
 	public void setPointList(PointList pointList)
