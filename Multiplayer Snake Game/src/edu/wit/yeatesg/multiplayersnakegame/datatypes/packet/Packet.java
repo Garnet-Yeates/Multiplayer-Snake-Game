@@ -132,8 +132,6 @@ public abstract class Packet
 		for (DataOutputStream os : streams)
 		{
 			setDataStream(os);
-			if (Packet.parsePacket(getUTF()) == null)
-				System.exit(0);
 			send();
 		}
 	}
