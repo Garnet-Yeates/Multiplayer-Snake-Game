@@ -5,11 +5,11 @@ import java.awt.Graphics;
 
 import javax.swing.Timer;
 
-import edu.wit.yeatesg.mps.phase3.play.SnakeClient;
+import edu.wit.yeatesg.mps.network.clientserver.GameplayClient;
 
 public abstract class BuffAnimationScript
 {
-	private SnakeClient container;
+	private GameplayClient container;
 
 	protected SnakeData whoGotTheBuff;
 
@@ -24,7 +24,7 @@ public abstract class BuffAnimationScript
 	private AnimationScriptTimer tickTimer;
 	private AnimationScriptTimer animationTimer;
 
-	public BuffAnimationScript(SnakeClient container, SnakeData whoGotTheBuff, int tickRate, int animationRate, long duration)
+	public BuffAnimationScript(GameplayClient container, SnakeData whoGotTheBuff, int tickRate, int animationRate, long duration)
 	{
 		this.maxTicks = (int) (duration / tickRate);
 		this.container = container;
@@ -34,7 +34,7 @@ public abstract class BuffAnimationScript
 		animationTimer = new AnimationScriptTimer(TimerType.ANIMATION_TIMER);
 	}
 
-	public BuffAnimationScript(SnakeClient container, SnakeData whoGotTheBuff, int tickRate, int animationRate, int numTicks)
+	public BuffAnimationScript(GameplayClient container, SnakeData whoGotTheBuff, int tickRate, int animationRate, int numTicks)
 	{
 		this(container, whoGotTheBuff, tickRate, animationRate, (long) numTicks*tickRate);
 	}

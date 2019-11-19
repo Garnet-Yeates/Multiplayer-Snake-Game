@@ -6,13 +6,13 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.UnknownHostException;
 
-import edu.wit.yeatesg.mps.phase1.connect.ConnectGUI;
+import edu.wit.yeatesg.mps.network.clientserver.ConnectClient;
 
 public class Test
 {
 	public static void main(String[] args) {
 		new Thread(() -> {
-			new ConnectGUI();
+			new ConnectClient();
 		}).start();
 	}
 }

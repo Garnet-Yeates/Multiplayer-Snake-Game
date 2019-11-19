@@ -2,7 +2,7 @@ package edu.wit.yeatesg.mps.phase0.otherdatatypes;
 import java.io.DataOutputStream;
 import java.util.ArrayList;
 
-import edu.wit.yeatesg.mps.phase0.packets.SnakeUpdatePacket;
+import edu.wit.yeatesg.mps.network.packets.SnakeUpdatePacket;
 
 
 // No duplicate elements

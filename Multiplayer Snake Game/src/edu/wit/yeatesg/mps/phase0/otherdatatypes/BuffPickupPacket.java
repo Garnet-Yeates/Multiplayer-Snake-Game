@@ -1,6 +1,6 @@
 package edu.wit.yeatesg.mps.phase0.otherdatatypes;
 
-import edu.wit.yeatesg.mps.phase0.packets.Packet;
+import edu.wit.yeatesg.mps.network.packets.Packet;
 
 public class BuffPickupPacket extends Packet
 {

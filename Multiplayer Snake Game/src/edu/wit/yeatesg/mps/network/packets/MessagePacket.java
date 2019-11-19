@@ -1,4 +1,4 @@
-package edu.wit.yeatesg.mps.phase0.packets;
+package edu.wit.yeatesg.mps.network.packets;
 
 
 public class MessagePacket extends Packet
@@ -19,12 +19,8 @@ public class MessagePacket extends Packet
 	@Override
 	protected void initFromStringArray(String[] args)
 	{
-		try {
 		sender = args[0];
 		message = args[1];
-		} catch (Exception e) {
-			System.out.println("FAILFAILFAILFAILFAILFAILFAILFAILFAILFAILFAILFAILFAILFAILFAILFAILFAILFAILFAILFAILFAILFAILFAILFAILFAILFAILFAILFAILFAILFAILFAILFAILFAIL");
-		}
 	}
 	
 	public String getMessage()

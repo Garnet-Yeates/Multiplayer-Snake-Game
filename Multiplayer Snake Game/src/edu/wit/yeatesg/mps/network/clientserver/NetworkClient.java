@@ -1,22 +1,18 @@
-package edu.wit.yeatesg.mps.phase1.connect;
-import java.awt.EventQueue;
+package edu.wit.yeatesg.mps.network.clientserver;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
-import javax.swing.JTextField;
-
+import edu.wit.yeatesg.mps.network.packets.MessagePacket;
+import edu.wit.yeatesg.mps.network.packets.Packet;
+import edu.wit.yeatesg.mps.network.packets.SnakeUpdatePacket;
 import edu.wit.yeatesg.mps.phase0.otherdatatypes.DuplicateClientException;
 import edu.wit.yeatesg.mps.phase0.otherdatatypes.ServerFullException;
 import edu.wit.yeatesg.mps.phase0.otherdatatypes.SnakeData;
-import edu.wit.yeatesg.mps.phase0.packets.MessagePacket;
-import edu.wit.yeatesg.mps.phase0.packets.Packet;
-import edu.wit.yeatesg.mps.phase0.packets.SnakeUpdatePacket;
-import edu.wit.yeatesg.mps.phase2.lobby.LobbyGUI;
 
-public class Client implements Runnable {
+public class NetworkClient implements Runnable {
 
 	private String name;
 	private ClientListener listener;
@@ -24,12 +20,14 @@ public class Client implements Runnable {
 	private DataOutputStream out;
 	private Socket cs;
 
-	public Client(ClientListener listener, String name) {
+	public NetworkClient(ClientListener listener, String name)
+	{
 		this.name = name;
 		this.listener = listener;
 	}
 
-	public boolean connect(String serverIP, int serverPort, boolean isHost) throws UnknownHostException, IOException, ServerFullException, DuplicateClientException {
+	public boolean connect(String serverIP, int serverPort, boolean isHost) throws UnknownHostException, IOException, ServerFullException, DuplicateClientException
+	{
 		cs = new Socket(serverIP, serverPort);
 		in = new DataInputStream(cs.getInputStream());
 		out = new DataOutputStream(cs.getOutputStream());
@@ -45,35 +43,46 @@ public class Client implements Runnable {
 		String data = in.readUTF();
 		MessagePacket resp = (MessagePacket) Packet.parsePacket(data);
 		
-		if (resp.getMessage().equals("CONNECTION ACCEPT")) {
-			System.out.println("CLIENT GET YES");
-		//	listener.setOutputStream(out);
-			new LobbyGUI(name, this, serverPort);
-			System.out.println("wut");
-			Thread clientThread = new Thread(this);
-			clientThread.start();
+		if (resp.getMessage().equals("CONNECTION ACCEPT"))
+		{
+			new LobbyClient(name, this, serverPort);
+			startAutoReceiving();
 			return true;
-		} else if (resp.getMessage().equals("SERVER FULL")) {
+		}
+		else if (resp.getMessage().equals("SERVER FULL"))
+		{
 			throw new ServerFullException();
-		} else throw new DuplicateClientException();
+		} 
+		else
+			throw new DuplicateClientException();
 	}
 	
+	private void startAutoReceiving()
+	{
+		Thread clientThread = new Thread(this);
+		clientThread.start();
+	}
+
 	public void setListener(ClientListener newListener) {
 		listener = newListener;
 		listener.setOutputStream(out);
 	}
 
 	@Override
-	public void run() {
-		while (true) {
-			try {
+	public void run()
+	{
+		while (true)
+		{
+			try
+			{
 				String data = in.readUTF();
 				listener.onReceive(data);
-			} catch (IOException e) {
+			}
+			catch (IOException e)
+			{
 				e.printStackTrace();
 			}
 		}
-
 	}
 
 	public void setName(String name)

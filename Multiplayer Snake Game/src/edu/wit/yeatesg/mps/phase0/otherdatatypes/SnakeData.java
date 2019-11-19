@@ -7,8 +7,8 @@ import java.lang.reflect.Field;
 import java.net.Socket;
 import java.util.ArrayList;
 
-import edu.wit.yeatesg.mps.phase0.packets.SnakeUpdatePacket;
-import edu.wit.yeatesg.mps.phase3.play.SnakeClient;
+import edu.wit.yeatesg.mps.network.clientserver.GameplayClient;
+import edu.wit.yeatesg.mps.network.packets.SnakeUpdatePacket;
 
 public class SnakeData
 {
@@ -121,6 +121,17 @@ public class SnakeData
 
 	private DataOutputStream $outputStream;
 	private Socket $socket;
+	private ArrayList<Direction> $directionBuffer;
+
+	public void setDirectionBuffer(ArrayList<Direction> buffer)
+	{
+		$directionBuffer = buffer;
+	}
+	
+	public ArrayList<Direction> getDirectionBuffer()
+	{
+		return $directionBuffer;
+	}
 
 	public boolean hasOutputStream()
 	{
@@ -175,9 +186,9 @@ public class SnakeData
 	{
 		for (Point segmentLoc : pointList)
 		{
-			Point drawCoords = SnakeClient.getPixelCoords(segmentLoc);
+			Point drawCoords = GameplayClient.getPixelCoords(segmentLoc);
 			g.setColor(color);
-			g.fillRect(drawCoords.getX(), drawCoords.getY(), SnakeClient.UNIT_SIZE, SnakeClient.UNIT_SIZE);
+			g.fillRect(drawCoords.getX(), drawCoords.getY(), GameplayClient.UNIT_SIZE, GameplayClient.UNIT_SIZE);
 		}
 	}
 

@@ -7,7 +7,7 @@
 		<delete file = "${dir.jarfile}/Multiplayer-Snake-Game.jar"/>
         <jar destfile="${dir.jarfile}/Multiplayer-Snake-Game.jar" filesetmanifest="mergewithoutmain">
             <manifest>
-                <attribute name="Main-Class" value="edu.wit.yeatesg.multiplayersnakegame.phase1connect.Launch"/>
+                <attribute name="Main-Class" value="edu.wit.yeatesg.mps.phase0.otherdatatypes.Test"/>
                 <attribute name="Class-Path" value="."/>
             </manifest>
             <fileset dir="C:/Users/yeatesg/git/multiplayersnakegamerepo/Multiplayer Snake Game/bin"/>

@@ -1,10 +1,9 @@
-package edu.wit.yeatesg.mps.phase0.packets;
+package edu.wit.yeatesg.mps.network.packets;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Collection;
 
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.InitiateGamePacket;
 import edu.wit.yeatesg.mps.phase0.otherdatatypes.ReflectionTools;
 
 public abstract class Packet
@@ -26,25 +25,38 @@ public abstract class Packet
 
 	protected abstract void initFromStringArray(String[] args);
 
-	public static Packet parsePacket(String utfData) {
+	public static Packet parsePacket(String utfData) 
+	{
 		Packet pack = null;
 		int typeOpenIndex = utfData.indexOf("<");
 		int typeCloseIndex = utfData.indexOf(">");
-		if (typeOpenIndex == 0 && typeOpenIndex < typeCloseIndex && typeCloseIndex != utfData.length() - 1) {
+		if (typeOpenIndex == 0 && typeOpenIndex < typeCloseIndex && typeCloseIndex != utfData.length() - 1) 
+		{
 			String packetType = utfData.substring(1, typeCloseIndex);
 			boolean hasPacketData = typeCloseIndex != utfData.length() - 1;
 			String packetData = hasPacketData ? utfData.substring(typeCloseIndex + 1) : null;
-			try {
-				if (packetType.equals("MessagePacket")) {
+			try 
+			{
+				if (packetType.equals("MessagePacket")) 
+				{
 					pack =  new MessagePacket(packetData);
-				} else if (packetType.equals("SnakeUpdatePacket")) {
+				} 
+				else if (packetType.equals("SnakeUpdatePacket")) 
+				{
 					pack =  new SnakeUpdatePacket(packetData);
-				} else if (packetType.equals("InitiateGamePacket")) {
+				} 
+				else if (packetType.equals("InitiateGamePacket"))
+				{
 					pack =  new InitiateGamePacket(packetData);
+				}
+				else if (packetType.equals("DirectionChangePacket"))
+				{
+					pack =  new DirectionChangePacket(packetData);
 				}
 			} catch (Exception e) { }
 		}
-		if (pack == null) {
+		if (pack == null) 
+		{
 			System.out.println("\n\n\n\n\n\n\n\n\nNULL PACKET\n\n\n\n\n\n\n\n\n\n");
 		}
 		return pack;
@@ -52,10 +64,12 @@ public abstract class Packet
 
 	public void send()
 	{
-		try {
+		try 
+		{
 			outputStream.writeUTF(getUTF());
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
+		}
+		catch (IOException e) 
+		{
 			e.printStackTrace();
 		}
 	}
