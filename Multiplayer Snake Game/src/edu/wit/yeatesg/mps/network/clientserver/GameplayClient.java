@@ -41,11 +41,11 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 	public static final int JAR_OFFSET_X = 9;
 	public static final int JAR_OFFSET_Y = 10;
 
-	public static final int NUM_HORIZONTAL_UNITS = 66;
+	public static final int NUM_HORIZONTAL_UNITS = 75;
 	public static final int NUM_HORIZONTAL_SPACES = NUM_HORIZONTAL_UNITS + 1;
-	public static final int NUM_VERTICAL_UNITS = 33;
+	public static final int NUM_VERTICAL_UNITS = 40;
 	public static final int NUM_VERTICAL_SPACES = NUM_VERTICAL_UNITS + 1;
-	public static final int UNIT_SIZE = 25; // Pixels
+	public static final int UNIT_SIZE = 20; // Pixels
 	public static final int SPACE_SIZE = 3; 
 	public static final int MAX_AREA = GameplayClient.NUM_HORIZONTAL_UNITS*GameplayClient.NUM_VERTICAL_UNITS;
 

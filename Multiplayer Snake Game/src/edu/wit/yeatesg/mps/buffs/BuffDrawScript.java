@@ -21,9 +21,7 @@ public abstract class BuffDrawScript
 
 	protected int maxAnimationTicks;
 
-	protected int animationRate;
-
-	private AnimationTickTimer animationTimer;
+	protected int animationRate = 10;
 
 	private long startTime;
 	private long endTime;
@@ -31,6 +29,7 @@ public abstract class BuffDrawScript
 	
 	public BuffDrawScript(GameplayClient container, SnakeData whoGotTheBuff, int tickRate, int animationRate, int duration)
 	{
+		System.out.println("TRANS LUCY WOOCY");
 		this.maxAnimationTicks = (int) (duration / animationRate);
 		System.out.println("MAX ANIM TICKS: " + maxAnimationTicks);
 		this.duration = duration;
@@ -38,11 +37,10 @@ public abstract class BuffDrawScript
 		this.container = container;
 		this.whoGotTheBuff = whoGotTheBuff;
 		this.whoGotTheBuff.setBuffDrawScript(this);
-		animationTimer = new AnimationTickTimer();
+		new AnimationTickTimer().start();
 	}
 
 	public abstract void drawSnake(Graphics g);
-
 	
 	private class AnimationTickTimer extends Timer
 	{
@@ -51,6 +49,7 @@ public abstract class BuffDrawScript
 		public AnimationTickTimer()
 		{
 			super(animationRate, null);
+			startTime = System.currentTimeMillis();
 			addActionListener((e) ->
 			{ 
 				container.repaint();
@@ -59,25 +58,21 @@ public abstract class BuffDrawScript
 				{
 					whoGotTheBuff.endBuffDrawScript();
 					stop();
-					System.out.println("End time: " + (endTime = System.currentTimeMillis()));
-					System.out.println("Duration: " + (duration = endTime - startTime));
-
+					endTime = System.currentTimeMillis();
+					duration = endTime - startTime;
 				}
 			});
-			System.out.println("Start time: " + (startTime = System.currentTimeMillis()));
-			start();
 		}
 	}
 
-	private boolean flashingMore;
+	private boolean incrementing;
 
-	protected final double defFlashIncDec = 0.02;
-	protected final double maxFlashStrength = 1;
+	private static final double minWhiteWeight = 0;
+	private static final double maxWhiteWeight = 1;
 
-	protected double currFlashIncDec = 0;
-	protected double currFlashStrength = 0;
-
-	private double maxFlashIncDec = 0.15;
+	private static final double maxWhiteIncrement = 0.15;
+	
+	private double currentWhiteWeight = 0;
 
 	protected final Color getColorBasedOnRemainingBuffTime(Color start, double progressToFlashAt, double flashIncMod)
 	{
@@ -87,21 +82,21 @@ public abstract class BuffDrawScript
 		if (progress > progressToFlashAt)
 		{
 			double flashProgress = (progress - progressToFlashAt) / (1 - progressToFlashAt);
-			currFlashIncDec = flashProgress * maxFlashIncDec;
-			currFlashStrength += currFlashIncDec * (flashingMore ? 1 : -1);
+			double whiteWeightIncrement = flashProgress * maxWhiteIncrement;
+			currentWhiteWeight += whiteWeightIncrement * (incrementing ? 1 : -1);
 			
-			if (currFlashStrength > maxFlashStrength)
+			if (currentWhiteWeight > maxWhiteWeight)
 			{
-				flashingMore = false;
-				currFlashStrength = maxFlashStrength;
+				incrementing = false;
+				currentWhiteWeight = maxWhiteWeight;
 			}
-			else if (currFlashStrength < 0)
+			else if (currentWhiteWeight < minWhiteWeight)
 			{
-				flashingMore = true;
-				currFlashStrength = 0;
+				incrementing = true;
+				currentWhiteWeight = 0;
 			}
 			int flashR = 255, flashG = 255, flashB = 255;
-			double flashWeight = currFlashStrength;
+			double flashWeight = currentWhiteWeight;
 			double regularWeight =  1 - flashWeight;
 			r = (int) (flashWeight*flashR + regularWeight*r);
 			g = (int) (flashWeight*flashG + regularWeight*g);

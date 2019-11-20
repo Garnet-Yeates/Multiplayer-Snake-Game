@@ -1,22 +1,18 @@
 package edu.wit.yeatesg.mps.network.clientserver;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.KeyEvent;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.security.acl.Acl;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Random;
 
 import javax.swing.Timer;
 
-import edu.wit.yeatesg.mps.buffs.BuffType;
 import edu.wit.yeatesg.mps.buffs.Fruit;
-import edu.wit.yeatesg.mps.network.packets.DebuffReceivePacket;
 import edu.wit.yeatesg.mps.network.packets.DirectionChangePacket;
 import edu.wit.yeatesg.mps.network.packets.FruitPickupPacket;
 import edu.wit.yeatesg.mps.network.packets.FruitSpawnPacket;
@@ -115,7 +111,7 @@ public class Server implements Runnable, ActionListener
 		{
 			send(responsePacket, newClient);
 
-			// Client loop will start here (it will start sending packets to its listeners)
+			// Client loop will start here (NetworkClient.startAutoReceiving() is called)
 			// by this time, the client should be linked to a LobbyGUI so the lobby GUI is listening
 
 			// Send join order data of all the already connected clients to the new client
@@ -160,8 +156,7 @@ public class Server implements Runnable, ActionListener
 	{
 		return connectedClients.size() == 4;
 	}
-
-
+	
 	// Packet Recevoir Handler
 
 	public void onReceive(String data) 
@@ -196,8 +191,7 @@ public class Server implements Runnable, ActionListener
 		}
 	}
 
-
-	private int TICK_RATE = 90;
+	private int TICK_RATE = 60;
 
 	private Timer timer;
 
@@ -244,8 +238,6 @@ public class Server implements Runnable, ActionListener
 
 	}
 	
-	private ArrayList<Fruit> allFruit = new ArrayList<>();
-
 	private void doSnakeMovements()
 	{		
 		HashMap<SnakeData, Point> oldTailLocations = new HashMap<>();
@@ -286,9 +278,9 @@ public class Server implements Runnable, ActionListener
 //		Collision handling
 		for (SnakeData aClient : connectedClients)
 		{
-			Point head = aClient.getPointList().get(0);
 			if (aClient.isAlive())
 			{
+				Point head = aClient.getPointList().get(0);
 				boolean colliding = false;
 				SnakeList otherClients = new SnakeList();
 				for (SnakeData bClient : connectedClients)
@@ -342,6 +334,8 @@ public class Server implements Runnable, ActionListener
 		}
 	}
 	
+	private ArrayList<Fruit> allFruit = new ArrayList<>();
+
 	public boolean spawnRandomFruit()
 	{
 		Random rand = new Random();

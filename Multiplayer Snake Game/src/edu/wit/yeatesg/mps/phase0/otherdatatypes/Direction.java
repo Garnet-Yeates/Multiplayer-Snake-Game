@@ -64,6 +64,14 @@ public enum Direction
 			return UP;
 		case KeyEvent.VK_DOWN:
 			return DOWN;
+		case KeyEvent.VK_A:
+			return LEFT;
+		case KeyEvent.VK_D:
+			return RIGHT;
+		case KeyEvent.VK_W:
+			return UP;
+		case KeyEvent.VK_S:
+			return DOWN;
 		default:
 			return null;
 		}
