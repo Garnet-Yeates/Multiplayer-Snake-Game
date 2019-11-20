@@ -10,11 +10,18 @@ import java.awt.event.KeyListener;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.io.DataOutputStream;
+import java.util.ArrayList;
+
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.Timer;
 
+import edu.wit.yeatesg.mps.buffs.BuffType;
+import edu.wit.yeatesg.mps.buffs.Fruit;
+import edu.wit.yeatesg.mps.network.packets.DebuffReceivePacket;
 import edu.wit.yeatesg.mps.network.packets.DirectionChangePacket;
+import edu.wit.yeatesg.mps.network.packets.FruitPickupPacket;
+import edu.wit.yeatesg.mps.network.packets.FruitSpawnPacket;
 import edu.wit.yeatesg.mps.network.packets.InitiateGamePacket;
 import edu.wit.yeatesg.mps.network.packets.MessagePacket;
 import edu.wit.yeatesg.mps.network.packets.Packet;
@@ -34,26 +41,18 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 	public static final int JAR_OFFSET_X = 9;
 	public static final int JAR_OFFSET_Y = 10;
 
-	public static final int NUM_HORIZONTAL_UNITS = 40;
+	public static final int NUM_HORIZONTAL_UNITS = 66;
 	public static final int NUM_HORIZONTAL_SPACES = NUM_HORIZONTAL_UNITS + 1;
-	public static final int NUM_VERTICAL_UNITS = 40;
+	public static final int NUM_VERTICAL_UNITS = 33;
 	public static final int NUM_VERTICAL_SPACES = NUM_VERTICAL_UNITS + 1;
-	public static final int UNIT_SIZE = 20; // Pixels
+	public static final int UNIT_SIZE = 25; // Pixels
 	public static final int SPACE_SIZE = 3; 
+	public static final int MAX_AREA = GameplayClient.NUM_HORIZONTAL_UNITS*GameplayClient.NUM_VERTICAL_UNITS;
 
 	public static final int WIDTH = NUM_HORIZONTAL_UNITS * UNIT_SIZE + NUM_HORIZONTAL_SPACES * SPACE_SIZE + JAR_OFFSET_X;
 	public static final int HEIGHT = NUM_VERTICAL_UNITS * UNIT_SIZE + NUM_VERTICAL_SPACES * SPACE_SIZE + JAR_OFFSET_Y;
 
 	public static final int MAX_NAME_LENGTH = 17;
-
-	public InitiateGamePaintScript currentInitiateScript = null;
-
-	boolean serverPaused = false;
-
-	private SnakeData thisClient;
-	private SnakeList allClients;
-
-	private DataOutputStream out;
 
 	public GameplayClient(NetworkClient internal, SnakeData thisClient, SnakeList allClients)
 	{
@@ -62,60 +61,114 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 		new SnakeGameGUI();
 		internal.setListener(this);
 	}
-
-	public void setFrame(SnakeGameGUI frame)
+	
+	private DataOutputStream out;
+	
+	@Override
+	public void setOutputStream(DataOutputStream out)
 	{
-		
+		this.out = out;
+	}
+	
+	@Override
+	public void onReceive(String data)
+	{
+		Packet packetReceiving = Packet.parsePacket(data);
+		if (packetReceiving instanceof InitiateGamePacket)
+		{
+			onGameStart((InitiateGamePacket) packetReceiving);
+		}
+		else if (packetReceiving instanceof SnakeUpdatePacket)
+		{
+			onSnakeListUpdate((SnakeUpdatePacket) packetReceiving);
+		}
+		else if (packetReceiving instanceof DebuffReceivePacket)
+		{
+			onReceiveDebuffPacket((DebuffReceivePacket) packetReceiving);
+		}
+		else if (packetReceiving instanceof FruitSpawnPacket)
+		{
+			onReceiveFruitSpawnPacket((FruitSpawnPacket) packetReceiving);
+		}
+		else if (packetReceiving instanceof FruitPickupPacket)
+		{
+			onReceiveFruitPickupPacket((FruitPickupPacket) packetReceiving);
+		}
+		else if (packetReceiving instanceof MessagePacket)
+		{
+			onMessagePacketReceive((MessagePacket) packetReceiving);
+		}
+	}
+	
+	private ArrayList<Fruit> fruitList = new ArrayList<>();
+	
+	private void onReceiveFruitSpawnPacket(FruitSpawnPacket packetReceiving)
+	{
+		fruitList.add(packetReceiving.getFruit());
+	}
+	
+	private void onReceiveFruitPickupPacket(FruitPickupPacket packetReceiving)
+	{
+		Fruit theFruit = packetReceiving.getFruit();
+		SnakeData whoPickedUp = allClients.get(packetReceiving.getWhoPickedUp());
+		fruitList.remove(packetReceiving.getFruit());
+		if (theFruit.hasAssociatedBuff())
+		{
+			BuffType buffToGrant = theFruit.getAssociatedBuff();
+			buffToGrant.startDrawScript(this, whoPickedUp);
+		}
 	}
 
-	public void onTick()
-	{
-		repaint();
-	}
-
-	private void onPlayerLeaveGame(SnakeData leaver)
-	{
-		allClients.remove(allClients.indexOf(leaver));
-	}
-
+	public InitiateGamePaintScript currentInitiateScript = null;
+	
 	private void onGameStart(InitiateGamePacket pack)
 	{
 		currentInitiateScript = new InitiateGamePaintScript(pack);
-		// Open a GameGUI on the port. Make sure the server sends all the clientData to the newly created GameGUI's!
+	}
+	
+	private SnakeData thisClient;
+	private SnakeList allClients;
+	
+	private void onSnakeListUpdate(SnakeUpdatePacket pack)
+	{
+		allClients.updateBasedOn(pack);
 	}
 
-	@Override
-	protected void paintComponent(Graphics g)
+	private void onReceiveDebuffPacket(DebuffReceivePacket debuffPacket)
 	{
-		super.paintComponent(g);
-
-		g.setColor(Color.BLACK);
-		g.fillRect(0, 0, WIDTH, HEIGHT);
-		setSize(WIDTH + 100, HEIGHT + 900);
-		if (currentInitiateScript != null)
+		BuffType buff = debuffPacket.getBuff();
+		buff.startDrawScript(this, allClients.get(debuffPacket.getReceiver()));
+	}
+	
+	private void onMessagePacketReceive(MessagePacket msgPacket)
+	{
+		switch (msgPacket.getMessage())
 		{
-			currentInitiateScript.draw(g);
+		case "THEY EXIT":
+			onOtherClientDisconnect(allClients.get(msgPacket.getSender()));
+			break;
+		case "YOU EXIT":
+			onThisClientDisconnect();
+			break;
+		case "SERVER TICK":
+			onServerTick();
+			break;
 		}
-
-		for (SnakeData dat : allClients)
-		{
-			dat.draw(g);
-		}
 	}
-
-	public static final int getPixelCoord(int segmentCoord)
+	
+	private void onOtherClientDisconnect(SnakeData leaver)
 	{
-		return SPACE_SIZE + (SPACE_SIZE + UNIT_SIZE) * segmentCoord;
+		allClients.remove(allClients.indexOf(leaver));
 	}
-
-	public static Point getPixelCoords(Point segmentCoords)
-	{
-		return new Point(getPixelCoord(segmentCoords.getX()), getPixelCoord(segmentCoords.getY()));
-	}
-
-	private void onExit()
+	
+	private void onThisClientDisconnect()
 	{
 		System.exit(0);
+	}
+
+	public void onServerTick()
+	{
+		repaint();
 	}
 
 	class InitiateGamePaintScript extends Timer implements ActionListener
@@ -129,7 +182,6 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 		{
 			super(pack.getTickRate(), null);
 			setInitialDelay(pack.getInitialDelay());
-			System.out.println("Init tee e all delay: " + pack.getInitialDelay());
 			addActionListener(this);
 			currentTick = 0;
 			maxTicks = pack.getNumTicks();
@@ -182,60 +234,32 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 		}
 	}
 
-	public static boolean validName(String text)
+	@Override
+	protected void paintComponent(Graphics g)
 	{
-		text = text.toLowerCase();
-		return !text.contains("server") &&
-				!text.contains("null") &&
-				!text.contains(PointList.REGEX) &&
-				!(text.length() > MAX_NAME_LENGTH) &&
-				!text.contains(Packet.REGEX) &&
-				!text.contains(SnakeData.REGEX) &&
-				!text.contains(SnakeList.REGEX) &&
-				!text.contains(Point.REGEX);
+		super.paintComponent(g);
+		
+		g.setColor(Color.BLACK);
+		g.fillRect(0, 0, WIDTH, HEIGHT);
+		
+		for (Fruit f : fruitList)
+			f.draw(g);
+		
+		if (currentInitiateScript != null)
+			currentInitiateScript.draw(g);
+
+		for (SnakeData dat : allClients)
+			dat.draw(g);
 	}
 
-
-	// LISTENERS
-
-
-	@Override
-	public void onReceive(String data)
+	public static final int getPixelCoord(int segmentCoord)
 	{
-		//		System.out.println(thisClient.getClientName() + " rawReceive -> " + data);
-		Packet packetReceiving = Packet.parsePacket(data);
-		if (packetReceiving instanceof InitiateGamePacket)
-		{
-			onGameStart((InitiateGamePacket) packetReceiving);
-		}
-		else if (packetReceiving instanceof SnakeUpdatePacket)
-		{
-			//	SnakeData dat = ((SnakeUpdatePacket) packetReceiving).getClientData();
-			allClients.updateBasedOn((SnakeUpdatePacket) packetReceiving);
-		}
-		else if (packetReceiving instanceof MessagePacket)
-		{
-			MessagePacket msgPacket = (MessagePacket) packetReceiving;
-			switch (msgPacket.getMessage())
-			{
-			case "THEY EXIT":
-				onPlayerLeaveGame(allClients.get(msgPacket.getSender()));
-				break;
-			case "YOU EXIT":
-				onExit();
-				break;
-			case "SERVER TICK":
-				onTick();
-				break;
-			}
-		}
-
+		return SPACE_SIZE + (SPACE_SIZE + UNIT_SIZE) * segmentCoord;
 	}
 
-	@Override
-	public void setOutputStream(DataOutputStream out)
+	public static Point getPixelCoords(Point segmentCoords)
 	{
-		this.out = out;
+		return new Point(getPixelCoord(segmentCoords.getX()), getPixelCoord(segmentCoords.getY()));
 	}
 
 	@Override
@@ -282,6 +306,22 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 	@Override
 	public void windowOpened(WindowEvent e) { }
 
+	public static boolean validName(String text)
+	{
+		text = text.toUpperCase();
+		return !text.contains("SERVER") &&
+				!text.contains("NULL") &&
+				!text.contains(PointList.REGEX) &&
+				!(text.length() > MAX_NAME_LENGTH) &&
+				!text.contains(Packet.REGEX) &&
+				!text.contains(SnakeData.REGEX) &&
+				!text.contains(SnakeList.REGEX) &&
+				!text.contains(Point.REGEX) &&
+				!text.contains(Fruit.REGEX);
+	}
+	
+	// Frame
+	
 	public class SnakeGameGUI extends JFrame
 	{	
 		private static final long serialVersionUID = -1155890718213904522L;
@@ -290,9 +330,8 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 		{
 			setTitle(thisClient.getClientName());
 			setContentPane(GameplayClient.this);
-			GameplayClient.this.setFrame(this);
 			ConnectClient.setLookAndFeel();
-			setBounds(100, 100, GameplayClient.WIDTH + 6, GameplayClient.HEIGHT + 29);
+			setBounds(20, 20, GameplayClient.WIDTH + 6, GameplayClient.HEIGHT + 29);
 			setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 			setResizable(false);
 			addWindowListener(GameplayClient.this);

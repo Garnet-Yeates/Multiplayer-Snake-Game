@@ -53,6 +53,19 @@ public abstract class Packet
 				{
 					pack =  new DirectionChangePacket(packetData);
 				}
+				else if (packetType.equals("FruitSpawnPacket"))
+				{
+					pack = new FruitSpawnPacket(packetData);
+				}
+				else if (packetType.equals("FruitPickupPacket"))
+				{
+					pack = new FruitPickupPacket(packetData);
+				}
+				else if (packetType.equals("DebuffReceivePacket"))
+				{
+					pack = new DebuffReceivePacket(packetData);
+				}
+
 			} catch (Exception e) { }
 		}
 		if (pack == null) 

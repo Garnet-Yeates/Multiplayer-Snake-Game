@@ -7,11 +7,19 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.security.acl.Acl;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Random;
 
 import javax.swing.Timer;
 
+import edu.wit.yeatesg.mps.buffs.BuffType;
+import edu.wit.yeatesg.mps.buffs.Fruit;
+import edu.wit.yeatesg.mps.network.packets.DebuffReceivePacket;
 import edu.wit.yeatesg.mps.network.packets.DirectionChangePacket;
+import edu.wit.yeatesg.mps.network.packets.FruitPickupPacket;
+import edu.wit.yeatesg.mps.network.packets.FruitSpawnPacket;
 import edu.wit.yeatesg.mps.network.packets.InitiateGamePacket;
 import edu.wit.yeatesg.mps.network.packets.MessagePacket;
 import edu.wit.yeatesg.mps.network.packets.Packet;
@@ -189,7 +197,7 @@ public class Server implements Runnable, ActionListener
 	}
 
 
-	private int TICK_RATE = 70;
+	private int TICK_RATE = 90;
 
 	private Timer timer;
 
@@ -206,7 +214,12 @@ public class Server implements Runnable, ActionListener
 		final int initialDelay = 3000;
 		InitiateGamePacket gameCounterPack = new InitiateGamePacket(initialDelay, gameStartDelay, numTicks);
 		sendToAll(gameCounterPack);
-
+		
+		spawnRandomFruit();
+		spawnRandomFruit();
+		spawnRandomFruit();
+		spawnRandomFruit();
+		
 		// Start the timer after gameStartDelay and start the game ticks
 		timer = new Timer(TICK_RATE, (e) -> tick());
 		timer.setInitialDelay(gameStartDelay);
@@ -227,46 +240,185 @@ public class Server implements Runnable, ActionListener
 		updateAllClients();
 		MessagePacket tickPacket = new MessagePacket("Server", "SERVER TICK");
 		sendToAll(tickPacket);
-		//		TickPacket pack = new TickPacket();
-		//		pack.sendMultiple(numPacketsSent++, connectedClients.getAllOutputStreams());
 		tickNum++;
 
-		//	doSnakeMovements();
-		//	updateAllClients();
-
-		//	updateAllClients();
-
-		// Do snakemovements
-		// Send updated clientdata to all clients
-
-		// Do snake movements ie update all the SnakeDataForServer stuff
-		// Send update packets to all the clients so the thing can be repainted for them
 	}
+	
+	private ArrayList<Fruit> allFruit = new ArrayList<>();
 
 	private void doSnakeMovements()
-	{
-		for (SnakeData dat : connectedClients)
+	{		
+		HashMap<SnakeData, Point> oldTailLocations = new HashMap<>();
+		
+		// Move each snake forward by one, store old tail location in HashMap
+		for (SnakeData aClient : connectedClients)
 		{
-			if (!dat.getDirectionBuffer().isEmpty())
-				dat.setDirection(dat.getDirectionBuffer().remove(0));
-			PointList points = dat.getPointList();
-			PointList clone = points.clone();
-			for (int i = 1; i < points.size(); i++)
-				points.set(i, clone.get(i - 1));
-			Point head = clone.get(0);
-			Point dir = dat.getDirection().getVector();
-			head = new Point(head.getX() + dir.getX(), head.getY() + dir.getY());
-			if (head.getX() > GameplayClient.NUM_HORIZONTAL_UNITS - 1)
-				head.setX(0);
-			else if (head.getX() < 0)
-				head.setX(GameplayClient.NUM_HORIZONTAL_UNITS - 1);
-			else if (head.getY() > GameplayClient.NUM_VERTICAL_UNITS - 1)
-				head.setY(0);
-			else if (head.getY() < 0)
-				head.setY(GameplayClient.NUM_VERTICAL_UNITS - 1);
-			points.set(0, head);
-			dat.setPointList(points);
+			if (aClient.isAlive())
+			{
+				if (!aClient.getDirectionBuffer().isEmpty())
+					aClient.setDirection(aClient.getDirectionBuffer().remove(0));
+				
+				PointList points = aClient.getPointList();
+				oldTailLocations.put(aClient, points.get(points.size() - 1));
+
+				PointList clone = points.clone();
+				for (int i = 1; i < points.size(); i++)
+					points.set(i, clone.get(i - 1));
+				Point head = clone.get(0);
+				Point dir = aClient.getDirection().getVector();
+				head = new Point(head.getX() + dir.getX(), head.getY() + dir.getY());
+				if (head.getX() > GameplayClient.NUM_HORIZONTAL_UNITS - 1)
+					head.setX(0);
+				else if (head.getX() < 0)
+					head.setX(GameplayClient.NUM_HORIZONTAL_UNITS - 1);
+				else if (head.getY() > GameplayClient.NUM_VERTICAL_UNITS - 1)
+					head.setY(0);
+				else if (head.getY() < 0)
+					head.setY(GameplayClient.NUM_VERTICAL_UNITS - 1);
+				points.set(0, head);
+
+				aClient.setPointList(points);
+			}
 		}
+		
+//		^ Update the position of all snakes before doing collision checks ^
+		
+//		Collision handling
+		for (SnakeData aClient : connectedClients)
+		{
+			Point head = aClient.getPointList().get(0);
+			if (aClient.isAlive())
+			{
+				boolean colliding = false;
+				SnakeList otherClients = new SnakeList();
+				for (SnakeData bClient : connectedClients)
+					if (!bClient.equals(aClient))
+						otherClients.add(bClient);
+				for (SnakeData otherClient : otherClients)
+					if (Server.interceptsSnakesSegment(head, otherClient))
+						colliding = true;
+				if (colliding)
+				{
+					colliding = aClient.hasBuffTranslucent() ? false : colliding;
+					aClient.setAlive(!colliding);
+				}
+			
+//				If client still alive, handle other stuff such as adding segments and picking up fruit
+				if (aClient.isAlive())
+				{
+//					Handle fruit pickup and the subsequent fruit spawning
+					if (hasInterceptingFruit(head))
+					{
+						Fruit pickingUp = getInterceptingFruit(head);
+						if (!pickingUp.hasAssociatedBuff() || !aClient.hasAnyBuffs())
+						{
+//							Remove this fruit from the fruit list, and add its segment value to snake belly
+							allFruit.remove(pickingUp);
+							int fruitValue = pickingUp.getFruitType().getNumSegmentsGiven();
+							aClient.modifyFoodInBelly(fruitValue);
+							
+//							Inform all clients that a player picked up a fruit so the Fruit is no longer drawn
+							FruitPickupPacket pack = new FruitPickupPacket(aClient.getClientName(), pickingUp);
+							sendToAll(pack); 
+							
+//							If this fruit has an associated buff, grant it to the player
+							if (pickingUp.hasAssociatedBuff())
+								aClient.grantBuff(pickingUp.getAssociatedBuff());
+							
+//							Spawn in a new Fruit somewhere else, send a FruitSpawnPacket to all clients
+							spawnRandomFruit();
+						}	
+					}
+					
+//					Handle the snake adding more segments as a result of recently eating a Fruit
+					if (aClient.hasFoodInBelly())
+					{
+						Point addSegmentHere = oldTailLocations.get(aClient);
+						aClient.addToPointList(addSegmentHere);
+						aClient.modifyFoodInBelly(-1);
+					}
+				}
+			}
+		}
+	}
+	
+	public boolean spawnRandomFruit()
+	{
+		Random rand = new Random();
+		boolean spawned = false;
+		Fruit addedFruit = null;
+		while (!spawned)
+		{
+//			If we have greater than a 1/10 chance of random spawning one, do this
+			if (getPercentCovered() < 0.90)
+			{
+				int randX = rand.nextInt(GameplayClient.NUM_HORIZONTAL_UNITS);
+				int randY = rand.nextInt(GameplayClient.NUM_VERTICAL_UNITS);
+				Point theoreticalFruitLoc = new Point(randX, randY);
+				if (!hasInterceptingFruit(theoreticalFruitLoc))
+				{
+					addedFruit = new Fruit(theoreticalFruitLoc);
+					spawned = true;
+				}
+			}
+//			If >90% of the map is covered, it is probably more efficient to just loop through a list of available spaces and choose a random index
+			else if (getPercentCovered() < 1)
+			{
+				ArrayList<Point> availableLocations = new ArrayList<>();
+				for (int x = 0; x < GameplayClient.NUM_HORIZONTAL_UNITS; x++)
+					for (int y = 0; y < GameplayClient.NUM_VERTICAL_SPACES; y++)
+						availableLocations.add(new Point(x, y));
+				for (SnakeData client : connectedClients)
+					availableLocations.removeAll(client.getPointList());
+				Point randomAvailableLoc = availableLocations.get(rand.nextInt(availableLocations.size()));
+				addedFruit = new Fruit(randomAvailableLoc);
+				spawned = true;
+			}
+			else break; // Can't spawn fruit, map is completely covered
+		}
+		if (addedFruit != null)
+		{
+			allFruit.add(addedFruit);
+			FruitSpawnPacket fruitSpawnPack = new FruitSpawnPacket(addedFruit);
+			sendToAll(fruitSpawnPack);
+			return true;
+		}
+		return false;
+	}
+	
+	
+	public int getCoveredArea()
+	{
+		int covered = 0;
+		for (SnakeData snake : connectedClients)
+			covered += snake.getPointList().size();
+		return covered;
+	}
+	
+	public double getPercentCovered()
+	{
+		return (double) getCoveredArea() / GameplayClient.MAX_AREA;
+	}
+	
+	public boolean hasInterceptingFruit(Point p)
+	{
+		return getInterceptingFruit(p) != null;
+	}
+	
+	public Fruit getInterceptingFruit(Point p)
+	{
+		for (Fruit f : allFruit)
+			if (f.getLocation().equals(p))
+				return f;		
+		return null;
+	}
+	
+	public static boolean interceptsSnakesSegment(Point point, SnakeData theSnake)
+	{
+		for (Point p : theSnake.getPointList())
+			if (point.equals(p))
+				return true;
+		return false;
 	}
 
 	private void updateAllClients()
@@ -355,14 +507,16 @@ public class Server implements Runnable, ActionListener
 			closeConnection(dat);
 	}
 
-
-	public synchronized void send(Packet p, SnakeData to) {
+	public synchronized void send(Packet p, SnakeData to)
+	{
 		p.setDataStream(to.getOutputStream());
 		p.send();
 	}
 
-	public synchronized void sendToAll(Packet p) {
-		for (SnakeData dat : connectedClients) {
+	public synchronized void sendToAll(Packet p)
+	{
+		for (SnakeData dat : connectedClients)
+		{
 			p.setDataStream(dat.getOutputStream());
 			p.send();
 		}

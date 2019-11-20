@@ -1,5 +1,8 @@
 package edu.wit.yeatesg.mps.phase0.otherdatatypes;
 
+import java.util.ArrayList;
+
+import edu.wit.yeatesg.mps.buffs.Fruit;
 
 public class Point
 {
@@ -51,6 +54,17 @@ public class Point
 	public int getY()
 	{
 		return y;
+	}
+	
+	@Override
+	public boolean equals(Object obj)
+	{
+		if (obj instanceof Point)
+		{
+			Point other = (Point) obj;
+			return other.x == x && other.y == y;
+		}
+		return false;
 	}
 	
 	@Override

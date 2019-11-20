@@ -12,8 +12,8 @@ import edu.wit.yeatesg.mps.phase0.otherdatatypes.DuplicateClientException;
 import edu.wit.yeatesg.mps.phase0.otherdatatypes.ServerFullException;
 import edu.wit.yeatesg.mps.phase0.otherdatatypes.SnakeData;
 
-public class NetworkClient implements Runnable {
-
+public class NetworkClient implements Runnable
+{
 	private String name;
 	private ClientListener listener;
 	private DataInputStream in;

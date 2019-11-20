@@ -77,7 +77,7 @@ public class SnakeList extends ArrayList<SnakeData>
 	}
 	
 	
-	// Server Methods
+	// Server-Only Methods
 	
 	
 	public synchronized ArrayList<DataOutputStream> getAllOutputStreams()

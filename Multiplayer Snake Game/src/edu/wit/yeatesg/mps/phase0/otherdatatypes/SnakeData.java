@@ -7,6 +7,10 @@ import java.lang.reflect.Field;
 import java.net.Socket;
 import java.util.ArrayList;
 
+import javax.swing.Timer;
+
+import edu.wit.yeatesg.mps.buffs.BuffDrawScript;
+import edu.wit.yeatesg.mps.buffs.BuffType;
 import edu.wit.yeatesg.mps.network.clientserver.GameplayClient;
 import edu.wit.yeatesg.mps.network.packets.SnakeUpdatePacket;
 
@@ -52,13 +56,33 @@ public class SnakeData
 
 	// Fields that are shared/updated/used between client/server
 
-
 	private String name;
 	private Color color;
 	private Direction direction;
 	private PointList pointList;
 	private boolean isHost;
 	private boolean isAlive;
+	
+	public void updateBasedOn(SnakeUpdatePacket pack)
+	{
+		SnakeData updated = pack.getClientData();
+
+		ArrayList<Field> fieldsToTransfer = ReflectionTools.getFieldsThatUpdate(SnakeData.class);
+		for (int i = 0; i < fieldsToTransfer.size(); i++)
+		{       // Update the fields of this object with the corresponding fields of the updated
+			try // SnakeData object. Don't update fields that begin with $
+			{
+				Field f = fieldsToTransfer.get(i);
+				f.setAccessible(true);
+				Object updatedValue = f.get(updated);
+				f.set(this, updatedValue); 
+			}
+			catch (IllegalArgumentException | IllegalAccessException e)
+			{
+				e.printStackTrace();
+			}
+		}
+	}
 
 	public Color getColor()
 	{
@@ -115,13 +139,75 @@ public class SnakeData
 		this.isAlive = isAlive;
 	}
 
+	@Override
+	public boolean equals(Object obj)
+	{
+		return obj instanceof SnakeData && ((SnakeData) obj).getClientName().equalsIgnoreCase(name);
+	}
 
-	// Server fields and methods, not updated when updateBasedOn(SnakeUpdatePacket pack) is called
+	@Override
+	public String toString()
+	{
+		return ReflectionTools.fieldsToString(REGEX, this, SnakeData.class);
+	}
+
+	@Override
+	public SnakeData clone()
+	{
+		return new SnakeData(toString());
+	}
+
+	public void setPointList(PointList pointList)
+	{
+		this.pointList = pointList;		
+	}
 
 
+	// Server side fields and methods, not updated when updateBasedOn(SnakeUpdatePacket pack) is called
+    // on the client side of this SnakeData, all of these fields will be null
+	
+	
 	private DataOutputStream $outputStream;
 	private Socket $socket;
 	private ArrayList<Direction> $directionBuffer;
+	private boolean $buffTranslucentActive;
+	private int $foodInBelly;
+	
+	public void grantBuff(BuffType buff)
+	{
+		Timer removeBuffTimer = new Timer(buff.getDuration(), null);
+		removeBuffTimer.setRepeats(false);
+		switch (buff)
+		{
+		case BUFF_TRANSLUCENT:
+			$buffTranslucentActive = true;
+			removeBuffTimer.addActionListener((e) -> $buffTranslucentActive = false);
+			break;
+		default:
+			break;
+		}
+		removeBuffTimer.start();
+	}
+	
+	public boolean hasBuffTranslucent()
+	{
+		return $buffTranslucentActive;
+	}
+	
+	public boolean hasAnyBuffs()
+	{
+		return $buffTranslucentActive; // || otherBuffActive || otherBuff2Active..
+	}
+	
+	public boolean hasFoodInBelly()
+	{
+		return $foodInBelly > 0;
+	}	
+	
+	public void modifyFoodInBelly(int byHowMuch)
+	{
+		$foodInBelly += byHowMuch;
+	}
 
 	public void setDirectionBuffer(ArrayList<Direction> buffer)
 	{
@@ -157,27 +243,43 @@ public class SnakeData
 	{
 		$socket = socket;
 	}
-
-
-	// Client fields and methods, not updated when updateBasedOn(SnakeUpdatePacket pack) is called
-
-
-	private BuffAnimationScript $currentBuffAnimationScript;
-
-	public void setBuffAnimationScript(BuffAnimationScript script)
+	
+	public void addToPointList(Point adding)
 	{
-		$currentBuffAnimationScript = script;
+		pointList.add(adding);
+	}
+	
+
+	// Client side fields and methods, not updated when updateBasedOn(SnakeUpdatePacket pack) is called
+	// on the server side of this SnakeData, these fields will be null
+
+
+	private BuffDrawScript $currentBuffDrawScript;
+
+	public void setBuffDrawScript(BuffDrawScript script)
+	{
+		$currentBuffDrawScript = script;
 	}
 
-	public void endBuffAnimationScript()
+	public void endBuffDrawScript()
 	{
-		$currentBuffAnimationScript = null;
+		$currentBuffDrawScript = null;
+	}
+	
+	public boolean hasBuffDrawScript()
+	{
+		return $currentBuffDrawScript != null;
+	}
+	
+	public BuffDrawScript getBuffDrawScript()
+	{
+		return $currentBuffDrawScript;
 	}
 
 	public void draw(Graphics g)
 	{
-		if ($currentBuffAnimationScript != null)
-			$currentBuffAnimationScript.drawSnake(g);
+		if ($currentBuffDrawScript != null)
+			$currentBuffDrawScript.drawSnake(g);
 		else
 			drawSnakeNormally(g);
 	}
@@ -190,51 +292,5 @@ public class SnakeData
 			g.setColor(color);
 			g.fillRect(drawCoords.getX(), drawCoords.getY(), GameplayClient.UNIT_SIZE, GameplayClient.UNIT_SIZE);
 		}
-	}
-
-	// The buff timers are going to be ehre
-
-	public void updateBasedOn(SnakeUpdatePacket pack)
-	{
-		SnakeData updated = pack.getClientData();
-
-		ArrayList<Field> fieldsToTransfer = ReflectionTools.getFieldsThatUpdate(SnakeData.class);
-		for (int i = 0; i < fieldsToTransfer.size(); i++)
-		{       // Update the fields of this object with the corresponding fields of the updated
-			try // SnakeData object. Don't update fields that begin with $
-			{
-				Field f = fieldsToTransfer.get(i);
-				f.setAccessible(true);
-				Object updatedValue = f.get(updated);
-				f.set(this, updatedValue); 
-			}
-			catch (IllegalArgumentException | IllegalAccessException e)
-			{
-				e.printStackTrace();
-			}
-		}
-	}
-
-	@Override
-	public boolean equals(Object obj)
-	{
-		return obj instanceof SnakeData && ((SnakeData) obj).getClientName().equalsIgnoreCase(name);
-	}
-
-	@Override
-	public String toString()
-	{
-		return ReflectionTools.fieldsToString(REGEX, this, SnakeData.class);
-	}
-
-	@Override
-	public SnakeData clone()
-	{
-		return new SnakeData(toString());
-	}
-
-	public void setPointList(PointList pointList)
-	{
-		this.pointList = pointList;		
 	}
 }
