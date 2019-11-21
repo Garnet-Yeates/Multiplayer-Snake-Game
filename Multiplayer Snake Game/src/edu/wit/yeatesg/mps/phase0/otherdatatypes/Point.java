@@ -1,9 +1,5 @@
 package edu.wit.yeatesg.mps.phase0.otherdatatypes;
 
-import java.util.ArrayList;
-
-import edu.wit.yeatesg.mps.buffs.Fruit;
-
 public class Point
 {
 	private int x;

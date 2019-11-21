@@ -9,7 +9,7 @@ import java.util.ArrayList;
 
 import javax.swing.Timer;
 
-import edu.wit.yeatesg.mps.buffs.BuffDrawScript;
+import edu.wit.yeatesg.mps.buffs.SnakeDrawScript;
 import edu.wit.yeatesg.mps.buffs.BuffType;
 import edu.wit.yeatesg.mps.network.clientserver.GameplayClient;
 import edu.wit.yeatesg.mps.network.packets.SnakeUpdatePacket;
@@ -249,48 +249,70 @@ public class SnakeData
 		pointList.add(adding);
 	}
 	
+	public int getOccurrenceOf(Point p)
+	{
+		int occurrences = 0;
+		for (Point p2 : pointList)
+			if (p.equals(p2))
+				occurrences++;
+		return occurrences;
+	}
 
 	// Client side fields and methods, not updated when updateBasedOn(SnakeUpdatePacket pack) is called
 	// on the server side of this SnakeData, these fields will be null
 
 
-	private BuffDrawScript $currentBuffDrawScript;
+	private SnakeDrawScript $currentDrawScript;
 
-	public void setBuffDrawScript(BuffDrawScript script)
+	public void setDrawScript(SnakeDrawScript script)
 	{
-		$currentBuffDrawScript = script;
+		$currentDrawScript = script;
 	}
 
 	public void endBuffDrawScript()
 	{
-		$currentBuffDrawScript = null;
+		$currentDrawScript = null;
 	}
 	
 	public boolean hasBuffDrawScript()
 	{
-		return $currentBuffDrawScript != null;
+		return $currentDrawScript != null;
 	}
 	
-	public BuffDrawScript getBuffDrawScript()
+	public SnakeDrawScript getBuffDrawScript()
 	{
-		return $currentBuffDrawScript;
+		return $currentDrawScript;
 	}
 
 	public void draw(Graphics g)
 	{
-		if ($currentBuffDrawScript != null)
-			$currentBuffDrawScript.drawSnake(g);
-		else
+		if ($currentDrawScript != null)
+			$currentDrawScript.drawSnake(g);
+		else if (isAlive)
 			drawSnakeNormally(g);
 	}
 
 	private void drawSnakeNormally(Graphics g)
 	{
+		int drawSize = GameplayClient.UNIT_SIZE;
 		for (Point segmentLoc : pointList)
 		{
 			Point drawCoords = GameplayClient.getPixelCoords(segmentLoc);
 			g.setColor(color);
-			g.fillRect(drawCoords.getX(), drawCoords.getY(), GameplayClient.UNIT_SIZE, GameplayClient.UNIT_SIZE);
+			if (getOccurrenceOf(segmentLoc) > 1)
+			{
+				int outlineThickness = (int) (GameplayClient.MAX_OUTLINE_THICKNESS*0.65);
+				int offset = 0;
+				for (int i = 0; i < outlineThickness; i++)
+				{
+					g.drawRect(drawCoords.getX() + offset, drawCoords.getY() + offset, drawSize - 2*offset - 1, drawSize - 2*offset - 1);
+					offset++;
+				}
+			}
+			else
+			{
+				g.fillRect(drawCoords.getX(), drawCoords.getY(), drawSize, drawSize);
+			}
 		}
 	}
 }

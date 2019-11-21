@@ -65,8 +65,12 @@ public abstract class Packet
 				{
 					pack = new DebuffReceivePacket(packetData);
 				}
+				else if (packetType.equals("SnakeDeathPacket"))
+				{
+					pack = new SnakeDeathPacket(packetData);
+				}
 
-			} catch (Exception e) { }
+			} catch (Exception e) { e.printStackTrace(); }
 		}
 		if (pack == null) 
 		{

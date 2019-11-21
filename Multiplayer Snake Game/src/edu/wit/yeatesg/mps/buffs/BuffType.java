@@ -5,8 +5,8 @@ import edu.wit.yeatesg.mps.phase0.otherdatatypes.SnakeData;
 
 public enum BuffType
 {
-	BUFF_TRANSLUCENT(15000);
-	
+	BUFF_TRANSLUCENT(10000);
+
 	private int duration;
 	
 	private BuffType(int duration)

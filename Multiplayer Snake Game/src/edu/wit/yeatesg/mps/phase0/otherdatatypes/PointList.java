@@ -32,7 +32,7 @@ public class PointList extends ArrayList<Point>
 	
 	public PointList()
 	{
-		super();
+		super(3000);
 	}
 	
 	public static PointList fromString(String splittable)

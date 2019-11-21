@@ -7,25 +7,25 @@ import edu.wit.yeatesg.mps.phase0.otherdatatypes.Color;
 import edu.wit.yeatesg.mps.phase0.otherdatatypes.Point;
 import edu.wit.yeatesg.mps.phase0.otherdatatypes.SnakeData;
 
-public class TranslucentBuffDrawScript extends BuffDrawScript
+public class TranslucentBuffDrawScript extends SnakeDrawScript
 {
 	public TranslucentBuffDrawScript(GameplayClient c, SnakeData who, int duration)
 	{
-		super(c, who, 100, 10, duration);
+		super(c, who, duration);
+		start();
 	}
 	
 	@Override
 	public void drawSnake(Graphics graphics)
 	{
-		Color drawCol = getColorBasedOnRemainingBuffTime(whoGotTheBuff.getColor(), 0.666, 10);
+		Color drawCol = getColorBasedOnRemainingBuffTime(beingDrawn.getColor(), 0.666, 10);
 		graphics.setColor(drawCol);
 
 		int drawSize = GameplayClient.UNIT_SIZE;
 		
-		double maxOutlineThickness = drawSize / 2;
-		int outlineThickness = getOutlineThicknessBasedOnProgress(maxOutlineThickness);
+		int outlineThickness = getOutlineThicknessBasedOnProgress();
 
-		for (Point p : whoGotTheBuff.getPointList())
+		for (Point p : beingDrawn.getPointList())
 		{
 			int drawX = GameplayClient.getPixelCoord(p.getX());
 			int drawY = GameplayClient.getPixelCoord(p.getY());	
@@ -33,20 +33,22 @@ public class TranslucentBuffDrawScript extends BuffDrawScript
 
 			for (int i = 0; i < outlineThickness; i++)
 			{
-				graphics.drawRect(drawX + offset, drawY + offset, drawSize - 2*offset, drawSize - 2*offset);
+				graphics.drawRect(drawX + offset, drawY + offset, drawSize - 2*offset - 1, drawSize - 2*offset - 1);
 				offset++;
 			}
 		}
 	}
+	
+	public static final int MIN_THICKNESS = 2;
 
-	private int getOutlineThicknessBasedOnProgress(double maxOutlineThickness)
+	private int getOutlineThicknessBasedOnProgress()
 	{
-		// y= 4.000x^2 −6x + 1.000 -> x = progress()
+		// y= 4.000x^2 −6x + 1.000 where x = progress()
 		double a = 8, b = -8, c = 1;
 		double progress = getProgress();
 		double thicknessMultiplier = a*Math.pow(progress, 2) + b*progress + c;
-		int outlineThickness = (int) (thicknessMultiplier * maxOutlineThickness);
-		outlineThickness = outlineThickness < 2 ? 2 : outlineThickness;
+		int outlineThickness = (int) (thicknessMultiplier * GameplayClient.MAX_OUTLINE_THICKNESS);
+		outlineThickness = outlineThickness < MIN_THICKNESS ? MIN_THICKNESS : outlineThickness;
 		return outlineThickness;
 	}		
 }

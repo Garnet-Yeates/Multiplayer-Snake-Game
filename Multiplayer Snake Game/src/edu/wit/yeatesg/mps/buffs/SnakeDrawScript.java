@@ -9,35 +9,38 @@ import edu.wit.yeatesg.mps.network.clientserver.GameplayClient;
 import edu.wit.yeatesg.mps.phase0.otherdatatypes.Color;
 import edu.wit.yeatesg.mps.phase0.otherdatatypes.SnakeData;
 
-public abstract class BuffDrawScript
+public abstract class SnakeDrawScript
 {
-	private GameplayClient container;
+	private GameplayClient drawingOn;
 
-	protected SnakeData whoGotTheBuff;
+	protected SnakeData beingDrawn;
 
 	protected int currentTick;
 	protected int currentAnimationTick;
 	protected int lastAnimationTick;
 
-	protected int maxAnimationTicks;
-
-	protected int animationRate = 10;
+	private int animationRate = 10;
 
 	private long startTime;
 	private long endTime;
-	private long duration;
+	private long duration; // May be off from maxDuration by approximately +-1%
 	
-	public BuffDrawScript(GameplayClient container, SnakeData whoGotTheBuff, int tickRate, int animationRate, int duration)
+	private long maxDuration;
+	
+	private AnimationTickTimer timer;
+	
+	public SnakeDrawScript(GameplayClient container, SnakeData who, long duration)
 	{
-		System.out.println("TRANS LUCY WOOCY");
-		this.maxAnimationTicks = (int) (duration / animationRate);
-		System.out.println("MAX ANIM TICKS: " + maxAnimationTicks);
-		this.duration = duration;
-		this.animationRate = animationRate;
-		this.container = container;
-		this.whoGotTheBuff = whoGotTheBuff;
-		this.whoGotTheBuff.setBuffDrawScript(this);
-		new AnimationTickTimer().start();
+		this.maxDuration = duration;
+		this.drawingOn = container;
+		this.beingDrawn = who;
+		this.beingDrawn.setDrawScript(this);
+		timer = new AnimationTickTimer();
+	}
+	
+	protected void start()
+	{
+		timer.start();
 	}
 
 	public abstract void drawSnake(Graphics g);
@@ -52,11 +55,12 @@ public abstract class BuffDrawScript
 			startTime = System.currentTimeMillis();
 			addActionListener((e) ->
 			{ 
-				container.repaint();
 				currentAnimationTick++;
-				if (System.currentTimeMillis() - startTime >= duration)
+				drawingOn.repaint();
+				onTick();
+				if (System.currentTimeMillis() - startTime >= maxDuration)
 				{
-					whoGotTheBuff.endBuffDrawScript();
+					beingDrawn.endBuffDrawScript();
 					stop();
 					endTime = System.currentTimeMillis();
 					duration = endTime - startTime;
@@ -108,6 +112,8 @@ public abstract class BuffDrawScript
 	
 	public double getProgress()
 	{
-		return (double) (System.currentTimeMillis() - startTime) / (double) duration;
+		return (double) (System.currentTimeMillis() - startTime) / (double) maxDuration;
 	}
+	
+	protected void onTick() { /* Subclasses can choose to implement this */ }
 }

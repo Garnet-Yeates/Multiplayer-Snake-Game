@@ -103,11 +103,11 @@ public class Fruit
 		case FRUIT_TRANSLUCENT:
 			graphics.setColor(Color.WHITE);
 			int offset = 0;
-			int outlineThickness = 3;
+			int outlineThickness = 2;
 			for (int i = 0; i < outlineThickness; i++)
 			{
-				graphics.drawRect(drawX + offset, drawY + offset, drawSize - 2*offset, drawSize - 2*offset);
-				offset += 1;
+				graphics.drawRect(drawX + offset, drawY + offset, drawSize - (2*offset) - 1, drawSize - (2*offset) - 1);
+				offset++;
 			}
 		default:
 			break;

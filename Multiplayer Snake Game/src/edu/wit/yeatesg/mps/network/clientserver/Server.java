@@ -19,6 +19,7 @@ import edu.wit.yeatesg.mps.network.packets.FruitSpawnPacket;
 import edu.wit.yeatesg.mps.network.packets.InitiateGamePacket;
 import edu.wit.yeatesg.mps.network.packets.MessagePacket;
 import edu.wit.yeatesg.mps.network.packets.Packet;
+import edu.wit.yeatesg.mps.network.packets.SnakeDeathPacket;
 import edu.wit.yeatesg.mps.network.packets.SnakeUpdatePacket;
 import edu.wit.yeatesg.mps.phase0.otherdatatypes.Direction;
 import edu.wit.yeatesg.mps.phase0.otherdatatypes.Point;
@@ -72,7 +73,7 @@ public class Server implements Runnable, ActionListener
 						DataOutputStream out = new DataOutputStream(s.getOutputStream());
 						if (onAttemptConnect(s, in, out))
 						{
-							while(open) 
+							while (open)
 							{
 								String data = in.readUTF();
 								new Thread(() -> onReceive(data)).start();
@@ -111,10 +112,10 @@ public class Server implements Runnable, ActionListener
 		{
 			send(responsePacket, newClient);
 
-			// Client loop will start here (NetworkClient.startAutoReceiving() is called)
-			// by this time, the client should be linked to a LobbyGUI so the lobby GUI is listening
+//			Client loop will start here (NetworkClient.startAutoReceiving() is called)
+//			by this time, the client should be linked to a LobbyGUI so the lobby GUI is listening
 
-			// Send join order data of all the already connected clients to the new client
+//			Send join order data of all the already connected clients to the new client
 			for (SnakeData client : connectedClients)
 			{
 				SnakeUpdatePacket pack = new SnakeUpdatePacket(client);
@@ -125,10 +126,11 @@ public class Server implements Runnable, ActionListener
 
 			connectedClients.add(newClient);
 
-			// Send the ClientData of the newly connected client to all of the connected clients (including the new client itself)
+//			Send the ClientData of the newly connected client to all of the connected clients (including the new client itself)
 			SnakeUpdatePacket updatePack = new SnakeUpdatePacket(newClient);
 			sendToAll(updatePack);
-			// Notify all clients that someone joined so the lobby can be updated properly
+			
+//		    Notify all clients that someone joined so the lobby can be updated properly
 			MessagePacket notifyJoin = new MessagePacket(clientName, "SOMEONE JOINED");
 			sendToAll(notifyJoin);
 			return true;
@@ -157,8 +159,6 @@ public class Server implements Runnable, ActionListener
 		return connectedClients.size() == 4;
 	}
 	
-	// Packet Recevoir Handler
-
 	public void onReceive(String data) 
 	{
 		Packet packetReceiving = Packet.parsePacket(data);
@@ -191,7 +191,7 @@ public class Server implements Runnable, ActionListener
 		}
 	}
 
-	private int TICK_RATE = 60;
+	private int TICK_RATE = 83;
 
 	private Timer timer;
 
@@ -235,7 +235,6 @@ public class Server implements Runnable, ActionListener
 		MessagePacket tickPacket = new MessagePacket("Server", "SERVER TICK");
 		sendToAll(tickPacket);
 		tickNum++;
-
 	}
 	
 	private void doSnakeMovements()
@@ -275,7 +274,7 @@ public class Server implements Runnable, ActionListener
 		
 //		^ Update the position of all snakes before doing collision checks ^
 		
-//		Collision handling
+//		Handle collision, fruit pickup/spawning, segment adding
 		for (SnakeData aClient : connectedClients)
 		{
 			if (aClient.isAlive())
@@ -284,16 +283,21 @@ public class Server implements Runnable, ActionListener
 				boolean colliding = false;
 				SnakeList otherClients = new SnakeList();
 				for (SnakeData bClient : connectedClients)
-					if (!bClient.equals(aClient))
+					if (!bClient.equals(aClient) && bClient.isAlive()) // Collision upon dead snakes does not occur
 						otherClients.add(bClient);
+				
+//				If this Snake's head location intercepts any segment on any OTHER snake, it counts as a collision
 				for (SnakeData otherClient : otherClients)
 					if (Server.interceptsSnakesSegment(head, otherClient))
 						colliding = true;
-				if (colliding)
-				{
-					colliding = aClient.hasBuffTranslucent() ? false : colliding;
-					aClient.setAlive(!colliding);
-				}
+				
+//				If this Snake's head location intercepts any of its own body segments more than once, it counts as a collision
+				colliding = aClient.getOccurrenceOf(head) > 2 ? true : colliding;
+				
+//				Set colliding to false if this Snake currently has the Translucent buff
+				colliding = aClient.hasBuffTranslucent() ? false : colliding;
+	
+				aClient.setAlive(!colliding);			
 			
 //				If client still alive, handle other stuff such as adding segments and picking up fruit
 				if (aClient.isAlive())
@@ -330,6 +334,12 @@ public class Server implements Runnable, ActionListener
 						aClient.modifyFoodInBelly(-1);
 					}
 				}
+				else
+				{
+//					Collision occurred and the client is now dead, so send a SnakeDeathPacket
+					SnakeDeathPacket snakeDeathPack = new SnakeDeathPacket(aClient.getClientName());
+					sendToAll(snakeDeathPack);
+				}
 			}
 		}
 	}
@@ -349,7 +359,7 @@ public class Server implements Runnable, ActionListener
 				int randX = rand.nextInt(GameplayClient.NUM_HORIZONTAL_UNITS);
 				int randY = rand.nextInt(GameplayClient.NUM_VERTICAL_UNITS);
 				Point theoreticalFruitLoc = new Point(randX, randY);
-				if (!hasInterceptingFruit(theoreticalFruitLoc))
+				if (!hasInterceptingFruit(theoreticalFruitLoc) && !interceptsAnySnakeSegment(theoreticalFruitLoc))
 				{
 					addedFruit = new Fruit(theoreticalFruitLoc);
 					spawned = true;
@@ -411,6 +421,14 @@ public class Server implements Runnable, ActionListener
 	{
 		for (Point p : theSnake.getPointList())
 			if (point.equals(p))
+				return true;
+		return false;
+	}
+	
+	public boolean interceptsAnySnakeSegment(Point p)
+	{
+		for (SnakeData snake : connectedClients)
+			if (interceptsSnakesSegment(p, snake))
 				return true;
 		return false;
 	}
