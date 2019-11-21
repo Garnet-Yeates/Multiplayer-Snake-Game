@@ -95,20 +95,22 @@ public class Server implements Runnable, ActionListener
 			}			
 		}
 	}
+	
+	private boolean gameStarted = false;
 
 	public boolean onAttemptConnect(Socket s, DataInputStream in, DataOutputStream out) throws IOException
 	{
 		String rawUTF = in.readUTF();
-		System.out.println("Attempt Connect From -> " + rawUTF);
 		SnakeUpdatePacket clientRequestPacket = (SnakeUpdatePacket) Packet.parsePacket(rawUTF);
 		SnakeData newClient = clientRequestPacket.getClientData();
 		String clientName = newClient.getClientName();
+		System.out.println("Attempt Connect From -> " + clientName + " " + s.getInetAddress());
 		newClient.setSocket(s);
 		newClient.setOutputStream(out);
 		newClient.setDirectionBuffer(new ArrayList<>());
 
 		MessagePacket responsePacket = new MessagePacket("Server", "CONNECTION ACCEPT");
-		if (!isDuplicateClient(clientName) && !isServerFull())
+		if (!isDuplicateClient(clientName) && !isServerFull() && !gameStarted)
 		{
 			send(responsePacket, newClient);
 
@@ -135,13 +137,17 @@ public class Server implements Runnable, ActionListener
 			sendToAll(notifyJoin);
 			return true;
 		} 
+		else if (gameStarted)
+		{
+			responsePacket.setMessage("GAME ACTIVE");
+		}
 		else if (isServerFull())
 		{
 			responsePacket.setMessage("SERVER FULL");
 		}
 		else if (isDuplicateClient(clientName))
 		{
-			responsePacket.setMessage("NAME UNAVAILABLE");
+			responsePacket.setMessage("NAME TAKEN");
 		}
 		send(responsePacket, newClient);
 		return false;
@@ -197,6 +203,8 @@ public class Server implements Runnable, ActionListener
 
 	private void onGameStart()
 	{		
+		gameStarted = true;
+		
 		/*
 		 * Starts InitiateGamePacket to the clients which tells them to start a timer that had
 		 * numTicks ticks, is on tick 0 for initialDelay milliseconds, and is on each subsequent
@@ -353,8 +361,8 @@ public class Server implements Runnable, ActionListener
 		Fruit addedFruit = null;
 		while (!spawned)
 		{
-//			If we have greater than a 1/10 chance of random spawning one, do this
-			if (getPercentCovered() < 0.90)
+//			If we have greater than a 1/20 chance of random spawning one, do this
+			if (getPercentCovered() < 0.95)
 			{
 				int randX = rand.nextInt(GameplayClient.NUM_HORIZONTAL_UNITS);
 				int randY = rand.nextInt(GameplayClient.NUM_VERTICAL_UNITS);

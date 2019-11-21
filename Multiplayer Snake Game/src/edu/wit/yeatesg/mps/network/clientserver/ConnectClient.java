@@ -75,11 +75,9 @@ public class ConnectClient extends JPanel
 
 			server = isHost ? (server == null ? new Server(port) : server) : null;		
 			
-			if (server != null) // This client is hosting the game
-			{
+			if (server != null) // This client wants to host the game
 				if (!server.start())
 					throw new RuntimeException("Couldn't create server");				
-			}
 			
 			internalClient.setName(field_name.getText());
 			
@@ -97,7 +95,7 @@ public class ConnectClient extends JPanel
 		btn_Host.setEnabled(true);
 	}
 	
-	int numPacketsSent;
+	private int numPacketsSent;
 	
 	public void onPacketReceive(Packet pack) { } 
 	
@@ -149,7 +147,7 @@ public class ConnectClient extends JPanel
 			ConnectClient.this.add(field_port);
 
 			field_name = new JTextField();
-			field_name.setText("");
+			field_name.setText("Nom");
 			field_name.setColumns(10);
 			field_name.setBounds(10, 70, 150, 20);
 			field_name.addKeyListener(new KeyListener() 

@@ -17,10 +17,10 @@ public class DeadSnakeDrawScript extends SnakeDrawScript
 	
 	public static final int DURATION = 1000;
 	
-	public DeadSnakeDrawScript(GameplayClient container, SnakeData whoGotTheBuff)
+	public DeadSnakeDrawScript(GameplayClient container, SnakeData who)
 	{
-		super(container, whoGotTheBuff, DURATION);
-		for (Point p : whoGotTheBuff.getPointList())
+		super(container, who, DURATION);
+		for (Point p : who.getPointList())
 		{
 			SplitSegment group = new SplitSegment(p);
 			segmentToSplitSegment.put(p, group);	

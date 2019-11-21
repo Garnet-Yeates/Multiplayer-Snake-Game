@@ -44,11 +44,11 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 	public static final int JAR_OFFSET_X = 9;
 	public static final int JAR_OFFSET_Y = 10;
 
-	public static final int NUM_HORIZONTAL_UNITS = 105;
+	public static final int NUM_HORIZONTAL_UNITS = 90;
 	public static final int NUM_HORIZONTAL_SPACES = NUM_HORIZONTAL_UNITS + 1;
-	public static final int NUM_VERTICAL_UNITS = 55;
+	public static final int NUM_VERTICAL_UNITS = 45;
 	public static final int NUM_VERTICAL_SPACES = NUM_VERTICAL_UNITS + 1;
-	public static final int UNIT_SIZE = 15; // Pixels
+	public static final int UNIT_SIZE = 18; // Pixels
 	public static final int SPACE_SIZE = 3; 
 	public static final int MAX_AREA = GameplayClient.NUM_HORIZONTAL_UNITS*GameplayClient.NUM_VERTICAL_UNITS;
 
@@ -169,7 +169,12 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 
 	private void onOtherClientDisconnect(SnakeData leaver)
 	{
-		allClients.remove(allClients.indexOf(leaver));
+		DeadSnakeDrawScript script = new DeadSnakeDrawScript(this, leaver);
+		leaver.setDrawScript(script);
+		Timer removeTimer = new Timer(DeadSnakeDrawScript.DURATION, null);
+		removeTimer.setRepeats(false);
+		removeTimer.addActionListener((e) -> allClients.remove(allClients.indexOf(leaver)));
+		removeTimer.start();
 	}
 
 	private void onThisClientDisconnect()
@@ -239,7 +244,6 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 				case 3:
 					g.drawString(1 + "", drawX, drawY);
 					break;
-
 				}
 			}
 		}

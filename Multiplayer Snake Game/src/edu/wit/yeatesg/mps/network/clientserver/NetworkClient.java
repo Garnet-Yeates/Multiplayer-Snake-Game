@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
+import javax.management.RuntimeErrorException;
+
 import edu.wit.yeatesg.mps.network.packets.MessagePacket;
 import edu.wit.yeatesg.mps.network.packets.Packet;
 import edu.wit.yeatesg.mps.network.packets.SnakeUpdatePacket;
@@ -26,44 +28,57 @@ public class NetworkClient implements Runnable
 		this.listener = listener;
 	}
 
-	public boolean connect(String serverIP, int serverPort, boolean isHost) throws UnknownHostException, IOException, ServerFullException, DuplicateClientException
+	public boolean connect(String serverIP, int serverPort, boolean isHost) throws RuntimeException
 	{
-		cs = new Socket(serverIP, serverPort);
-		in = new DataInputStream(cs.getInputStream());
-		out = new DataOutputStream(cs.getOutputStream());
-				
-		SnakeData thisClientsData = new SnakeData();
-		thisClientsData.setName(name);
-		thisClientsData.setIsHost(isHost);
-		
-		SnakeUpdatePacket request = new SnakeUpdatePacket(thisClientsData);
-		request.setDataStream(out);
-		request.send();
-		
-		String data = in.readUTF();
-		MessagePacket resp = (MessagePacket) Packet.parsePacket(data);
-		
-		if (resp.getMessage().equals("CONNECTION ACCEPT"))
+		String data;
+		try
 		{
+			cs = new Socket(serverIP, serverPort);
+			in = new DataInputStream(cs.getInputStream());
+			out = new DataOutputStream(cs.getOutputStream());
+
+			SnakeData thisClientsData = new SnakeData();
+			thisClientsData.setName(name);
+			thisClientsData.setIsHost(isHost);
+
+			SnakeUpdatePacket request = new SnakeUpdatePacket(thisClientsData);
+			request.setDataStream(out);
+			request.send();
+			
+			data = in.readUTF();
+		}
+		catch (IOException e)
+		{
+			String message = e instanceof UnknownHostException ? "Unknown Host" : "Connection Refused";
+			throw new RuntimeException(message);
+		}
+		
+		MessagePacket resp = (MessagePacket) Packet.parsePacket(data);
+
+		switch (resp.getMessage())
+		{
+		case "CONNECTION ACCEPT":
 			new LobbyClient(name, this, serverPort);
 			startAutoReceiving();
 			return true;
+		case "GAME ACTIVE":
+			throw new RuntimeException("Game already started");
+		case "SERVER FULL":
+			throw new RuntimeException("Server is full");
+		case "NAME TAKEN":
+			throw new RuntimeException("Your name is taken");
 		}
-		else if (resp.getMessage().equals("SERVER FULL"))
-		{
-			throw new ServerFullException();
-		} 
-		else
-			throw new DuplicateClientException();
+		return false;
 	}
-	
+
 	private void startAutoReceiving()
 	{
 		Thread clientThread = new Thread(this);
 		clientThread.start();
 	}
 
-	public void setListener(ClientListener newListener) {
+	public void setListener(ClientListener newListener)
+	{
 		listener = newListener;
 		listener.setOutputStream(out);
 	}
