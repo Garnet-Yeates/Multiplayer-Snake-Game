@@ -138,6 +138,11 @@ public class SnakeData
 	{
 		this.isAlive = isAlive;
 	}
+	
+	public int getLength()
+	{
+		return pointList.size();
+	}
 
 	@Override
 	public boolean equals(Object obj)

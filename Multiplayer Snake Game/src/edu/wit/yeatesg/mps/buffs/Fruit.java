@@ -2,10 +2,13 @@ package edu.wit.yeatesg.mps.buffs;
 
 import java.awt.Color;
 import java.awt.Graphics;
+import java.util.ArrayList;
 import java.util.Random;
 
 import edu.wit.yeatesg.mps.network.clientserver.GameplayClient;
+import edu.wit.yeatesg.mps.network.clientserver.Server;
 import edu.wit.yeatesg.mps.phase0.otherdatatypes.Point;
+import edu.wit.yeatesg.mps.phase0.otherdatatypes.SnakeData;
 
 public class Fruit
 {
@@ -20,11 +23,23 @@ public class Fruit
 		this.location = location;
 	}
 	
-	public Fruit(Point theoreticalFruitLoc)
+	public Fruit(Server creating, Point theoreticalFruitLoc)
 	{
 		this.location = theoreticalFruitLoc;
 		Random rand = new Random();
+		ArrayList<FruitType> possibleTypes = new ArrayList<>();
+		
+//		If all Snake's aren't at least 20 units, can't spawn hungry fruit
 		for (FruitType type : FruitType.values())
+			possibleTypes.add(type);
+		boolean hungryFruitPossible = true;
+		for (SnakeData living : creating.getConnectedClients().getAliveSnakes())
+			if (living.getLength() < 20)
+				hungryFruitPossible = false;
+		if (!hungryFruitPossible)
+			possibleTypes.remove(FruitType.FRUIT_HUNGRY);
+		
+		for (FruitType type : possibleTypes)
 		{
 			if (rand.nextInt(type.getRarity()) == 0)
 			{
@@ -109,8 +124,14 @@ public class Fruit
 				graphics.drawRect(drawX + offset, drawY + offset, drawSize - (2*offset) - 1, drawSize - (2*offset) - 1);
 				offset++;
 			}
+			break;
+		case FRUIT_HUNGRY:
+			graphics.setColor(Color.DARK_GRAY);
+			graphics.fillRect(drawX, drawY, drawSize, drawSize);
+			break;
 		default:
 			break;
 		}
+
 	}
 }

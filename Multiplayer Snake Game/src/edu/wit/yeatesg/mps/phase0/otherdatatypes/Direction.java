@@ -4,18 +4,18 @@ import java.awt.event.KeyEvent;
 
 public enum Direction
 {
-	UP(new Point(0, -1)), DOWN(new Point(0, 1)), LEFT(new Point(-1, 0)), RIGHT(new Point(1, 0));
+	UP(new Vector(0, -1)), DOWN(new Vector(0, 1)), LEFT(new Vector(-1, 0)), RIGHT(new Vector(1, 0));
 
-	private Point vec;
+	private Vector vec;
 
-	private Direction(Point vec)
+	private Direction(Vector vec)
 	{
 		this.vec = vec;
 	}
 
-	public Point getVector()
+	public Vector getVector()
 	{
-		return Point.fromString(vec.toString());
+		return vec.clone();
 	}
 	
 	public Direction getOpposite()

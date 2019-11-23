@@ -19,6 +19,7 @@ import javax.swing.Timer;
 import edu.wit.yeatesg.mps.buffs.BuffType;
 import edu.wit.yeatesg.mps.buffs.DeadSnakeDrawScript;
 import edu.wit.yeatesg.mps.buffs.Fruit;
+import edu.wit.yeatesg.mps.buffs.TickListener;
 import edu.wit.yeatesg.mps.network.packets.DebuffReceivePacket;
 import edu.wit.yeatesg.mps.network.packets.DirectionChangePacket;
 import edu.wit.yeatesg.mps.network.packets.FruitPickupPacket;
@@ -44,11 +45,11 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 	public static final int JAR_OFFSET_X = 9;
 	public static final int JAR_OFFSET_Y = 10;
 
-	public static final int NUM_HORIZONTAL_UNITS = 90;
+	public static final int NUM_HORIZONTAL_UNITS = 80;
 	public static final int NUM_HORIZONTAL_SPACES = NUM_HORIZONTAL_UNITS + 1;
-	public static final int NUM_VERTICAL_UNITS = 45;
+	public static final int NUM_VERTICAL_UNITS = 40;
 	public static final int NUM_VERTICAL_SPACES = NUM_VERTICAL_UNITS + 1;
-	public static final int UNIT_SIZE = 18; // Pixels
+	public static final int UNIT_SIZE = 20; // Pixels
 	public static final int SPACE_SIZE = 3; 
 	public static final int MAX_AREA = GameplayClient.NUM_HORIZONTAL_UNITS*GameplayClient.NUM_VERTICAL_UNITS;
 
@@ -79,6 +80,8 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 	public void onReceive(String data)
 	{
 		Packet packetReceiving = Packet.parsePacket(data);
+//		System.out.println(thisClient.getClientName() + " received -> " + packetReceiving);
+
 		switch (packetReceiving.getClass().getSimpleName())
 		{
 		case "InitiateGamePacket":
@@ -149,6 +152,7 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 	{
 		SnakeData whoDied = allClients.get(packetReceiving.getSnakeName());
 		whoDied.setDrawScript(new DeadSnakeDrawScript(this, whoDied));
+		System.out.println("after draw script set (in GameplayClient.class)");
 	}
 
 	private void onMessagePacketReceive(MessagePacket msgPacket)
@@ -181,10 +185,24 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 	{
 		System.exit(0);
 	}
+	
+	public ArrayList<TickListener> tickListeners = new ArrayList<TickListener>();
 
 	public void onServerTick()
 	{
 		repaint();
+		for (TickListener listener : tickListeners)
+			listener.onReceiveTick();
+	}
+	
+	public synchronized void addTickListener(TickListener listener)
+	{
+		tickListeners.add(listener);
+	}
+	
+	public synchronized void removeTickListener(TickListener beingRemoved)
+	{
+		tickListeners.remove(beingRemoved);
 	}
 
 	class GameStartDrawScript extends Timer implements ActionListener
@@ -337,6 +355,20 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 				!text.contains(Vector.REGEX) &&
 				!text.equals("");
 	}
+	
+	public static Point keepInBounds(Point head)
+	{
+		head = head.clone();
+		if (head.getX() > GameplayClient.NUM_HORIZONTAL_UNITS - 1)
+			head.setX(0);
+		else if (head.getX() < 0)
+			head.setX(GameplayClient.NUM_HORIZONTAL_UNITS - 1);
+		else if (head.getY() > GameplayClient.NUM_VERTICAL_UNITS - 1)
+			head.setY(0);
+		else if (head.getY() < 0)
+			head.setY(GameplayClient.NUM_VERTICAL_UNITS - 1);
+		return head;
+	}
 
 	// Frame
 
@@ -359,4 +391,3 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 		}
 	}
 }
-

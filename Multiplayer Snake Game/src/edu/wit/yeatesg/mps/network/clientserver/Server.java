@@ -211,9 +211,9 @@ public class Server implements Runnable, ActionListener
 		 * tick for [(gameStartDelay - initialDelay) / numTicks] milliseconds. At each tick,
 		 * something different is painted, depending on how I code InitiateGameScript.class in SnakeClient.java
 		 */
-		final int gameStartDelay = 6000;
-		final int numTicks = 3;
-		final int initialDelay = 3000;
+		final int gameStartDelay = 1000; // 6000
+		final int numTicks = 3; // 3
+		final int initialDelay = 1000; // 3000
 		InitiateGamePacket gameCounterPack = new InitiateGamePacket(initialDelay, gameStartDelay, numTicks);
 		sendToAll(gameCounterPack);
 		
@@ -221,6 +221,17 @@ public class Server implements Runnable, ActionListener
 		spawnRandomFruit();
 		spawnRandomFruit();
 		spawnRandomFruit();
+		spawnRandomFruit();
+		spawnRandomFruit();
+		spawnRandomFruit();
+		spawnRandomFruit();
+		spawnRandomFruit();
+		spawnRandomFruit();
+		spawnRandomFruit();
+		spawnRandomFruit();
+		spawnRandomFruit();
+		spawnRandomFruit();
+
 		
 		// Start the timer after gameStartDelay and start the game ticks
 		timer = new Timer(TICK_RATE, (e) -> tick());
@@ -247,6 +258,7 @@ public class Server implements Runnable, ActionListener
 	
 	private void doSnakeMovements()
 	{		
+		// Each movement on a different thread
 		HashMap<SnakeData, Point> oldTailLocations = new HashMap<>();
 		
 		// Move each snake forward by one, store old tail location in HashMap
@@ -260,22 +272,12 @@ public class Server implements Runnable, ActionListener
 				PointList points = aClient.getPointList();
 				oldTailLocations.put(aClient, points.get(points.size() - 1));
 
-				PointList clone = points.clone();
-				for (int i = 1; i < points.size(); i++)
-					points.set(i, clone.get(i - 1));
-				Point head = clone.get(0);
-				Point dir = aClient.getDirection().getVector();
-				head = new Point(head.getX() + dir.getX(), head.getY() + dir.getY());
-				if (head.getX() > GameplayClient.NUM_HORIZONTAL_UNITS - 1)
-					head.setX(0);
-				else if (head.getX() < 0)
-					head.setX(GameplayClient.NUM_HORIZONTAL_UNITS - 1);
-				else if (head.getY() > GameplayClient.NUM_VERTICAL_UNITS - 1)
-					head.setY(0);
-				else if (head.getY() < 0)
-					head.setY(GameplayClient.NUM_VERTICAL_UNITS - 1);
-				points.set(0, head);
-
+				Point oldHead = points.get(0);
+				Point head = oldHead.addVector(aClient.getDirection().getVector());
+				head = GameplayClient.keepInBounds(head);
+				
+				points.add(0, head);
+				points.remove(points.size() - 1);
 				aClient.setPointList(points);
 			}
 		}
@@ -369,7 +371,7 @@ public class Server implements Runnable, ActionListener
 				Point theoreticalFruitLoc = new Point(randX, randY);
 				if (!hasInterceptingFruit(theoreticalFruitLoc) && !interceptsAnySnakeSegment(theoreticalFruitLoc))
 				{
-					addedFruit = new Fruit(theoreticalFruitLoc);
+					addedFruit = new Fruit(this, theoreticalFruitLoc);
 					spawned = true;
 				}
 			}
@@ -383,7 +385,7 @@ public class Server implements Runnable, ActionListener
 				for (SnakeData client : connectedClients)
 					availableLocations.removeAll(client.getPointList());
 				Point randomAvailableLoc = availableLocations.get(rand.nextInt(availableLocations.size()));
-				addedFruit = new Fruit(randomAvailableLoc);
+				addedFruit = new Fruit(this, randomAvailableLoc);
 				spawned = true;
 			}
 			else break; // Can't spawn fruit, map is completely covered
@@ -397,7 +399,6 @@ public class Server implements Runnable, ActionListener
 		}
 		return false;
 	}
-	
 	
 	public int getCoveredArea()
 	{
@@ -506,6 +507,11 @@ public class Server implements Runnable, ActionListener
 
 		// Bounce packet back to all clients
 		sendToAll(updatePacket);
+	}
+	
+	public SnakeList getConnectedClients()
+	{
+		return connectedClients;
 	}
 
 	private void closeConnection(SnakeData exiting)

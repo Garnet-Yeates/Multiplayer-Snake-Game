@@ -18,7 +18,7 @@ public class TranslucentBuffDrawScript extends SnakeDrawScript
 	@Override
 	public void drawSnake(Graphics graphics)
 	{
-		Color drawCol = getColorBasedOnRemainingBuffTime(beingDrawn.getColor(), 0.666, 10);
+		Color drawCol = getColorBasedOnRemainingBuffTime(beingDrawn.getColor(), Color.WHITE, 0.66666, 1);
 		graphics.setColor(drawCol);
 
 		int drawSize = GameplayClient.UNIT_SIZE;

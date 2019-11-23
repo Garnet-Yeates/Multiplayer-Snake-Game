@@ -12,18 +12,20 @@ import edu.wit.yeatesg.mps.phase0.otherdatatypes.SnakeData;
 import edu.wit.yeatesg.mps.phase0.otherdatatypes.Vector;
 
 public class DeadSnakeDrawScript extends SnakeDrawScript
-{
-	private HashMap<Point, SplitSegment> segmentToSplitSegment = new HashMap<>();
+{	
+	private LittleSegmentGroup[] respectiveSegmentGroups;
 	
 	public static final int DURATION = 1000;
 	
 	public DeadSnakeDrawScript(GameplayClient container, SnakeData who)
 	{
 		super(container, who, DURATION);
+		int index = 0;
+		respectiveSegmentGroups = new LittleSegmentGroup[who.getLength()];
 		for (Point p : who.getPointList())
 		{
-			SplitSegment group = new SplitSegment(p);
-			segmentToSplitSegment.put(p, group);	
+			LittleSegmentGroup group = new LittleSegmentGroup(p);
+			respectiveSegmentGroups[index++] = group;	
 		}
 		start();
 	}
@@ -31,22 +33,20 @@ public class DeadSnakeDrawScript extends SnakeDrawScript
 	@Override
 	public void drawSnake(Graphics g)
 	{
-		for (Point p : segmentToSplitSegment.keySet())
-			segmentToSplitSegment.get(p).draw(g);
+		for (int i = 0; i < respectiveSegmentGroups.length; respectiveSegmentGroups[i].draw(g), i++);
 	}
 	
 	@Override
-	protected void onTick()
+	protected void onAnimationTick()
 	{
-		for (Point p : segmentToSplitSegment.keySet())
-			segmentToSplitSegment.get(p).onTick();
+		for (int i = 0; i < respectiveSegmentGroups.length; respectiveSegmentGroups[i].onTick(), i++);
 	}
 	
-	private class SplitSegment
+	private class LittleSegmentGroup
 	{
-		private ArrayList<LittleSegment> segmentList = new ArrayList<>();
+		private LittleSegment[] littleSegments = new LittleSegment[9];
 		
-		public SplitSegment(Point segmentLocation)
+		public LittleSegmentGroup(Point segmentLocation)
 		{
 			Point pixelCoords = GameplayClient.getPixelCoords(segmentLocation);
 			int pixelX = pixelCoords.getX();
@@ -65,11 +65,12 @@ public class DeadSnakeDrawScript extends SnakeDrawScript
 				new Vector(-1, 1), new Vector(0, 1), new Vector(1, 1)
 			};
 			
+			int index = 0;
 			for (int y = 0; y < 3; y++)
 			{
 				for (int x = 0; x < 3; x++)
 				{
-					segmentList.add(new LittleSegment(vecs[currVector++], drawPoint.getX(), drawPoint.getY(), (int) littleSegmentSize));
+					littleSegments[index++] = new LittleSegment(vecs[currVector++], drawPoint.getX(), drawPoint.getY(), (int) littleSegmentSize);
 					drawPoint.setX((int) (drawPoint.getX() + littleSegmentSize));
 				}
 				drawPoint.setY((int) (drawPoint.getY() + littleSegmentSize));
@@ -79,13 +80,13 @@ public class DeadSnakeDrawScript extends SnakeDrawScript
 		
 		private void draw(Graphics g)
 		{
-			for (LittleSegment lilGuy : segmentList)
+			for (LittleSegment lilGuy : littleSegments)
 				lilGuy.draw(g);
 		}
 		
 		private void onTick()
 		{
-			for (LittleSegment lilGuy : segmentList)
+			for (LittleSegment lilGuy : littleSegments)
 				lilGuy.onTick();
 		}
 		

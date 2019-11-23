@@ -24,12 +24,4 @@ public class SnakeDeathPacket extends Packet
 	{
 		this.snakeName = snakeName;
 	}
-	
-	public static void main(String[] args) {
-		SnakeDeathPacket instance = new SnakeDeathPacket("Jash");
-		System.out.println(instance.getSnakeName());
-		System.out.println(instance.toString());
-		System.out.println(instance.getUTF());
-		System.out.println(Packet.parsePacket(instance.getUTF()));
-	}
 }

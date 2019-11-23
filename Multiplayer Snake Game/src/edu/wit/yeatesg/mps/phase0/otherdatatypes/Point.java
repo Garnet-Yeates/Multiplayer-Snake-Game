@@ -26,6 +26,11 @@ public class Point
 		}
 	}
 	
+	public Point addVector(Vector v)
+	{
+		return new Point(x + (int) v.getX(), y + (int) v.getY());
+	}
+	
 	public void setXY(int x, int y)
 	{
 		this.x = x;

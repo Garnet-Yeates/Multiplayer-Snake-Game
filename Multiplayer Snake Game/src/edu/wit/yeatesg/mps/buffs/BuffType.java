@@ -5,7 +5,7 @@ import edu.wit.yeatesg.mps.phase0.otherdatatypes.SnakeData;
 
 public enum BuffType
 {
-	BUFF_TRANSLUCENT(10000);
+	BUFF_TRANSLUCENT(10000), BUFF_HUNGRY(10000);
 
 	private int duration;
 	
@@ -23,6 +23,8 @@ public enum BuffType
 	{
 		if (this == BUFF_TRANSLUCENT)
 			new TranslucentBuffDrawScript(drawingOn, who, duration);
+		if (this == BUFF_HUNGRY)
+			new HungryBuffDrawScript(drawingOn, who, duration);
 		else; // Other buffs here...
 	}
 	
@@ -32,7 +34,5 @@ public enum BuffType
 			if (s.equals(b.toString()))
 				return b;
 		return null;
-	}
-	
-	// Make fruit be an enum as well, with a draw(g) method..
+	}	
 }

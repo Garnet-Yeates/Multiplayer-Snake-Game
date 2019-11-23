@@ -1,6 +1,5 @@
 package edu.wit.yeatesg.mps.phase0.otherdatatypes;
 
-
 public class Color extends java.awt.Color
 {	
 	private static final long serialVersionUID = 7345839733841193315L;
@@ -15,6 +14,7 @@ public class Color extends java.awt.Color
 	public static final Color CYAN = new Color(java.awt.Color.CYAN);
 	public static final Color WHITE = new Color(java.awt.Color.WHITE);
 	public static final Color BLACK = new Color(java.awt.Color.BLACK);
+	public static final Color GRAY = new Color(java.awt.Color.GRAY);
 	
 	public Color(int r, int g, int b)
 	{

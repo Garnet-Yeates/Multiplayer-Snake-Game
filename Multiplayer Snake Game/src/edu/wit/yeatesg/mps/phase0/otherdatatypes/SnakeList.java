@@ -76,6 +76,24 @@ public class SnakeList extends ArrayList<SnakeData>
 			add(updated);
 	}
 	
+	public ArrayList<SnakeData> getAliveSnakes()
+	{
+		ArrayList<SnakeData> livingSnakes = new ArrayList<>();
+		for (SnakeData snake : this)
+			if (snake.isAlive())
+				livingSnakes.add(snake);
+		return livingSnakes;
+	}
+	
+	public ArrayList<SnakeData> getAllSnakesExcept(SnakeData exluding)
+	{
+		ArrayList<SnakeData> otherSnakes = new ArrayList<>();
+		for (SnakeData snake : this)
+			if (!snake.equals(exluding))
+				otherSnakes.add(snake);
+		return otherSnakes;
+	}
+	
 	
 	// Server-Only Methods
 	
