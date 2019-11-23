@@ -17,6 +17,8 @@ public class Fruit
 	private FruitType type;
 	private Point location;
 	
+	public static final int MIN_FRUIT_HUNGRY_LENGTH = 31;
+	
 	public Fruit(FruitType type, Point location)
 	{
 		this.type = type;
@@ -29,12 +31,15 @@ public class Fruit
 		Random rand = new Random();
 		ArrayList<FruitType> possibleTypes = new ArrayList<>();
 		
-//		If all Snake's aren't at least 20 units, can't spawn hungry fruit
+//		If all Snake's aren't at least MIN_FRUIT_HUNGRY_LENGTH units, can't spawn hungry fruit
 		for (FruitType type : FruitType.values())
 			possibleTypes.add(type);
 		boolean hungryFruitPossible = true;
 		for (SnakeData living : creating.getConnectedClients().getAliveSnakes())
-			if (living.getLength() < 20)
+			if (living.getLength() < MIN_FRUIT_HUNGRY_LENGTH)
+				hungryFruitPossible = false;
+		for (Fruit f : creating.getAllFruit())
+			if (f.getFruitType() == FruitType.FRUIT_HUNGRY)
 				hungryFruitPossible = false;
 		if (!hungryFruitPossible)
 			possibleTypes.remove(FruitType.FRUIT_HUNGRY);

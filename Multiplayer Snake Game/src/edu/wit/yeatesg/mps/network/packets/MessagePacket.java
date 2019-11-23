@@ -1,6 +1,5 @@
 package edu.wit.yeatesg.mps.network.packets;
 
-
 public class MessagePacket extends Packet
 {
 	protected String sender;

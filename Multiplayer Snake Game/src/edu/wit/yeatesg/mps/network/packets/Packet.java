@@ -69,6 +69,10 @@ public abstract class Packet
 				{
 					pack = new SnakeDeathPacket(packetData);
 				}
+				else if (packetType.equals("SnakeBitePacket"))
+				{
+					pack = new SnakeBitePacket(packetData);
+				}
 
 			} catch (Exception e) { e.printStackTrace(); }
 		}

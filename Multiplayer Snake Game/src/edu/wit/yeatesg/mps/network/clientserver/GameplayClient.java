@@ -19,6 +19,7 @@ import javax.swing.Timer;
 import edu.wit.yeatesg.mps.buffs.BuffType;
 import edu.wit.yeatesg.mps.buffs.DeadSnakeDrawScript;
 import edu.wit.yeatesg.mps.buffs.Fruit;
+import edu.wit.yeatesg.mps.buffs.SnakeBiteDrawScript;
 import edu.wit.yeatesg.mps.buffs.TickListener;
 import edu.wit.yeatesg.mps.network.packets.DebuffReceivePacket;
 import edu.wit.yeatesg.mps.network.packets.DirectionChangePacket;
@@ -27,6 +28,7 @@ import edu.wit.yeatesg.mps.network.packets.FruitSpawnPacket;
 import edu.wit.yeatesg.mps.network.packets.InitiateGamePacket;
 import edu.wit.yeatesg.mps.network.packets.MessagePacket;
 import edu.wit.yeatesg.mps.network.packets.Packet;
+import edu.wit.yeatesg.mps.network.packets.SnakeBitePacket;
 import edu.wit.yeatesg.mps.network.packets.SnakeDeathPacket;
 import edu.wit.yeatesg.mps.network.packets.SnakeUpdatePacket;
 import edu.wit.yeatesg.mps.phase0.otherdatatypes.Direction;
@@ -105,6 +107,9 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 		case "MessagePacket":
 			onMessagePacketReceive((MessagePacket) packetReceiving);
 			break;
+		case "SnakeBitePacket":
+			onSnakeBitePacketReceive((SnakeBitePacket) packetReceiving);
+			break;
 		}
 	}
 
@@ -151,9 +156,22 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 	private void onSnakeDeathPacketReceive(SnakeDeathPacket packetReceiving)
 	{
 		SnakeData whoDied = allClients.get(packetReceiving.getSnakeName());
-		whoDied.setDrawScript(new DeadSnakeDrawScript(this, whoDied));
-		System.out.println("after draw script set (in GameplayClient.class)");
+		new DeadSnakeDrawScript(this, whoDied);
 	}
+	
+	private void onSnakeBitePacketReceive(SnakeBitePacket packetReceiving)
+	{
+		SnakeData bitten = allClients.get(packetReceiving.getBitten());
+		SnakeData biter = allClients.get(packetReceiving.getBiting());
+		biter.endBuffDrawScript();
+		int interceptingIndex = packetReceiving.getInterceptingIndex();
+		PointList clone = bitten.getPointList();
+		PointList bitOff = new PointList();
+		for (int i = clone.size() - 1; i >= interceptingIndex; bitOff.add(clone.get(i)), clone.remove(i), i--);
+		bitten.setPointList(clone);
+		new SnakeBiteDrawScript(this, bitten, bitOff);
+	}
+
 
 	private void onMessagePacketReceive(MessagePacket msgPacket)
 	{
@@ -173,8 +191,7 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 
 	private void onOtherClientDisconnect(SnakeData leaver)
 	{
-		DeadSnakeDrawScript script = new DeadSnakeDrawScript(this, leaver);
-		leaver.setDrawScript(script);
+		new DeadSnakeDrawScript(this, leaver);
 		Timer removeTimer = new Timer(DeadSnakeDrawScript.DURATION, null);
 		removeTimer.setRepeats(false);
 		removeTimer.addActionListener((e) -> allClients.remove(allClients.indexOf(leaver)));
@@ -242,14 +259,14 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 			g.setColor(Color.WHITE);
 			if (currentTick == 0)
 			{
-				drawX = 250;
-				drawY = 250;
-				g.drawString("Game Starting Soon", 120, 300);
+				drawX = WIDTH / 2 - 375;
+				drawY = HEIGHT / 2;
+				g.drawString("Game Starting Soon", drawX, drawY);
 			}
 			else
 			{
 				drawX = WIDTH / 2 - 60;
-				drawY = HEIGHT / 2 + 70;
+				drawY = HEIGHT / 2 + 50;
 				g.setFont(new Font("Times New Roman", Font.BOLD, 200));
 				switch (currentTick)
 				{

@@ -11,6 +11,11 @@ public class ReflectionTools
 
 	public static String fieldsToString(String regex, Object instance, Class<?> c)
 	{	
+		return fieldsToString(regex, instance, c, null);
+	}
+	
+	public static String fieldsToString(String regex, Object instance, Class<?> c, String[] excluding)
+	{	
 		Field[] fields = c.getDeclaredFields();
 		String s = "";
 		int numUpdatableFields = ReflectionTools.getNumUpdatableFields(c);
@@ -22,7 +27,7 @@ public class ReflectionTools
 			{					
 				if (!Modifier.isStatic(f.getModifiers()) && ReflectionTools.isUpdatableField(f))
 				{
-					Object v = f.get(instance);
+					Object v = arrContains(excluding, f.getName()) ? null : f.get(instance);
 					s += v + (index == numUpdatableFields - 1 ? "" : regex); // Don't append regex to end of the last field string
 					index++;
 				}
@@ -53,6 +58,18 @@ public class ReflectionTools
 			if (isUpdatableField(f))
 				list.add(f);
 		return list;
+	}
+	
+	public static <T> boolean arrContains(T[] arr, T entry)
+	{
+		if (arr != null)
+		{
+			for (T aT : arr)
+				if (aT.equals(entry))
+					return true;
+			return false;
+		}
+		return false;
 	}
 	
 	public static ArrayList<Field> getFieldsThatDontUpdate(Class<?> c)

@@ -13,22 +13,25 @@ import java.util.Random;
 import javax.swing.Timer;
 
 import edu.wit.yeatesg.mps.buffs.Fruit;
+import edu.wit.yeatesg.mps.buffs.FruitType;
 import edu.wit.yeatesg.mps.network.packets.DirectionChangePacket;
 import edu.wit.yeatesg.mps.network.packets.FruitPickupPacket;
 import edu.wit.yeatesg.mps.network.packets.FruitSpawnPacket;
 import edu.wit.yeatesg.mps.network.packets.InitiateGamePacket;
 import edu.wit.yeatesg.mps.network.packets.MessagePacket;
 import edu.wit.yeatesg.mps.network.packets.Packet;
+import edu.wit.yeatesg.mps.network.packets.SnakeBitePacket;
 import edu.wit.yeatesg.mps.network.packets.SnakeDeathPacket;
 import edu.wit.yeatesg.mps.network.packets.SnakeUpdatePacket;
 import edu.wit.yeatesg.mps.phase0.otherdatatypes.Direction;
 import edu.wit.yeatesg.mps.phase0.otherdatatypes.Point;
 import edu.wit.yeatesg.mps.phase0.otherdatatypes.PointList;
+import edu.wit.yeatesg.mps.phase0.otherdatatypes.ReflectionTools;
 import edu.wit.yeatesg.mps.phase0.otherdatatypes.SnakeData;
 import edu.wit.yeatesg.mps.phase0.otherdatatypes.SnakeList;
 
 public class Server implements Runnable, ActionListener 
-{
+{	
 	private ServerSocket ss;
 	private int port;
 	private boolean open;
@@ -197,7 +200,7 @@ public class Server implements Runnable, ActionListener
 		}
 	}
 
-	private int TICK_RATE = 83;
+	private int TICK_RATE = 80;
 
 	private Timer timer;
 
@@ -211,9 +214,9 @@ public class Server implements Runnable, ActionListener
 		 * tick for [(gameStartDelay - initialDelay) / numTicks] milliseconds. At each tick,
 		 * something different is painted, depending on how I code InitiateGameScript.class in SnakeClient.java
 		 */
-		final int gameStartDelay = 1000; // 6000
+		final int gameStartDelay = 6000; // 6000
 		final int numTicks = 3; // 3
-		final int initialDelay = 1000; // 3000
+		final int initialDelay = 3000; // 3000
 		InitiateGamePacket gameCounterPack = new InitiateGamePacket(initialDelay, gameStartDelay, numTicks);
 		sendToAll(gameCounterPack);
 		
@@ -221,17 +224,6 @@ public class Server implements Runnable, ActionListener
 		spawnRandomFruit();
 		spawnRandomFruit();
 		spawnRandomFruit();
-		spawnRandomFruit();
-		spawnRandomFruit();
-		spawnRandomFruit();
-		spawnRandomFruit();
-		spawnRandomFruit();
-		spawnRandomFruit();
-		spawnRandomFruit();
-		spawnRandomFruit();
-		spawnRandomFruit();
-		spawnRandomFruit();
-
 		
 		// Start the timer after gameStartDelay and start the game ticks
 		timer = new Timer(TICK_RATE, (e) -> tick());
@@ -245,20 +237,16 @@ public class Server implements Runnable, ActionListener
 		tick();
 	}
 
-	private int tickNum = 0;
-
 	private void tick()
 	{
 		doSnakeMovements();
 		updateAllClients();
 		MessagePacket tickPacket = new MessagePacket("Server", "SERVER TICK");
 		sendToAll(tickPacket);
-		tickNum++;
 	}
 	
 	private void doSnakeMovements()
 	{		
-		// Each movement on a different thread
 		HashMap<SnakeData, Point> oldTailLocations = new HashMap<>();
 		
 		// Move each snake forward by one, store old tail location in HashMap
@@ -297,17 +285,53 @@ public class Server implements Runnable, ActionListener
 						otherClients.add(bClient);
 				
 //				If this Snake's head location intercepts any segment on any OTHER snake, it counts as a collision
+				SnakeData interceptingSnake = aClient;
+				int interceptingIndex = -1;
 				for (SnakeData otherClient : otherClients)
-					if (Server.interceptsSnakesSegment(head, otherClient))
+				{
+					interceptingIndex = Server.getInterceptingIndex(head, otherClient);
+					if (interceptingIndex != -1)
+					{
+						interceptingSnake = otherClient;
 						colliding = true;
-				
+					}
+				}
+					
+				int headOccurance = aClient.getOccurrenceOf(head);
 //				If this Snake's head location intercepts any of its own body segments more than once, it counts as a collision
-				colliding = aClient.getOccurrenceOf(head) > 2 ? true : colliding;
+				colliding = headOccurance > 2 || headOccurance > 1 && aClient.hasBuffHungry() ? true : colliding;
 				
 //				Set colliding to false if this Snake currently has the Translucent buff
 				colliding = aClient.hasBuffTranslucent() ? false : colliding;
 	
-				aClient.setAlive(!colliding);			
+				if (colliding && aClient.hasBuffHungry())
+				{
+					colliding = false;
+					if (interceptingSnake == aClient)
+						interceptingIndex = Server.getInterceptingIndex(head, aClient);
+					
+					final int MAX_BITE_OFF = Fruit.MIN_FRUIT_HUNGRY_LENGTH - 1;
+					int howManyBitOff = interceptingSnake.getLength() - interceptingIndex;
+					if ((interceptingSnake.getLength() >= Fruit.MIN_FRUIT_HUNGRY_LENGTH && howManyBitOff <= MAX_BITE_OFF) || interceptingSnake == aClient)
+					{
+						int length = interceptingSnake.getLength();
+						PointList clone = interceptingSnake.getPointList();
+						for (int i = length - 1; i >= interceptingIndex; clone.remove(i), i--);
+						interceptingSnake.setPointList(clone);
+						if (interceptingSnake != aClient)
+							aClient.modifyFoodInBelly(howManyBitOff);
+						aClient.removeHungryBuffEarly();
+						interceptingSnake.removeAllBuffsEarly();
+						SnakeBitePacket snakeBite = new SnakeBitePacket(aClient.getClientName(), interceptingSnake.getClientName(), howManyBitOff, interceptingIndex);
+						sendToAll(snakeBite);
+					}
+					else // Bit off more than they can chew
+					{
+						colliding = true;
+					}
+				}
+				
+				aClient.setIsAlive(!colliding);			
 			
 //				If client still alive, handle other stuff such as adding segments and picking up fruit
 				if (aClient.isAlive())
@@ -318,21 +342,31 @@ public class Server implements Runnable, ActionListener
 						Fruit pickingUp = getInterceptingFruit(head);
 						if (!pickingUp.hasAssociatedBuff() || !aClient.hasAnyBuffs())
 						{
-//							Remove this fruit from the fruit list, and add its segment value to snake belly
-							allFruit.remove(pickingUp);
-							int fruitValue = pickingUp.getFruitType().getNumSegmentsGiven();
-							aClient.modifyFoodInBelly(fruitValue);
-							
-//							Inform all clients that a player picked up a fruit so the Fruit is no longer drawn
-							FruitPickupPacket pack = new FruitPickupPacket(aClient.getClientName(), pickingUp);
-							sendToAll(pack); 
-							
-//							If this fruit has an associated buff, grant it to the player
-							if (pickingUp.hasAssociatedBuff())
-								aClient.grantBuff(pickingUp.getAssociatedBuff());
-							
-//							Spawn in a new Fruit somewhere else, send a FruitSpawnPacket to all clients
-							spawnRandomFruit();
+							boolean canPickUp = true;
+//							All other clients in the game must be at least certain length for the hungry fruit to be picked up
+							if (pickingUp.getFruitType() == FruitType.FRUIT_HUNGRY)
+								for (SnakeData otherClient : otherClients)
+									if (otherClient.getLength() < Fruit.MIN_FRUIT_HUNGRY_LENGTH)
+										canPickUp = false;
+							if (canPickUp)
+							{
+//								Remove this fruit from the fruit list, and add its segment value to snake belly
+								allFruit.remove(pickingUp);
+								int fruitValue = pickingUp.getFruitType().getNumSegmentsGiven();
+								aClient.modifyFoodInBelly(fruitValue);
+								
+//								Inform all clients that a player picked up a fruit so the Fruit is no longer drawn
+								FruitPickupPacket pack = new FruitPickupPacket(aClient.getClientName(), pickingUp);
+								sendToAll(pack); 
+								
+//								If this fruit has an associated buff, grant it to the player
+								if (pickingUp.hasAssociatedBuff())
+									aClient.grantBuff(pickingUp.getAssociatedBuff());
+								
+//								Spawn in a new Fruit somewhere else, send a FruitSpawnPacket to all clients
+								spawnRandomFruit();
+							}
+//							
 						}	
 					}
 					
@@ -342,7 +376,10 @@ public class Server implements Runnable, ActionListener
 						Point addSegmentHere = oldTailLocations.get(aClient);
 						aClient.addToPointList(addSegmentHere);
 						aClient.modifyFoodInBelly(-1);
+						aClient.setAddingSegment(true);
 					}
+					else
+						aClient.setAddingSegment(false);
 				}
 				else
 				{
@@ -356,6 +393,11 @@ public class Server implements Runnable, ActionListener
 	
 	private ArrayList<Fruit> allFruit = new ArrayList<>();
 
+	public ArrayList<Fruit> getAllFruit()
+	{
+		return allFruit;
+	}
+	
 	public boolean spawnRandomFruit()
 	{
 		Random rand = new Random();
@@ -428,10 +470,23 @@ public class Server implements Runnable, ActionListener
 	
 	public static boolean interceptsSnakesSegment(Point point, SnakeData theSnake)
 	{
-		for (Point p : theSnake.getPointList())
-			if (point.equals(p))
-				return true;
-		return false;
+		return getInterceptingIndex(point, theSnake) != -1;
+	}
+	
+	// Returns last occurrence
+	public static int getInterceptingIndex(Point point, SnakeData theSnake)
+	{
+		int theIndex = -1;
+		int i = 0;
+		for (Point possible : theSnake.getPointList())
+		{
+			if (possible.equals(point))
+			{
+				theIndex = i;
+			}
+			i++;
+		}
+		return theIndex;
 	}
 	
 	public boolean interceptsAnySnakeSegment(Point p)
@@ -446,7 +501,8 @@ public class Server implements Runnable, ActionListener
 	{
 		for (SnakeData client : connectedClients)
 		{
-			SnakeUpdatePacket updatePack = new SnakeUpdatePacket(client);
+			SnakeData clientClone = new SnakeData(ReflectionTools.fieldsToString(SnakeData.REGEX, client, SnakeData.class, new String[] { "pointList" }));
+			SnakeUpdatePacket updatePack = new SnakeUpdatePacket(clientClone);
 			sendToAll(updatePack);
 		}
 	}

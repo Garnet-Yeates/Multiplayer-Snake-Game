@@ -18,7 +18,7 @@ public class SnakeData
 {
 	public static final String REGEX = ":";
 
-	public SnakeData(String name, Color color, Direction direction, PointList pointList, boolean isHost, boolean isAlive)
+	public SnakeData(String name, Color color, Direction direction, PointList pointList, boolean isHost, boolean isAlive, boolean addingSegment)
 	{
 		this.name = name;
 		this.color = color;
@@ -26,6 +26,7 @@ public class SnakeData
 		this.pointList = pointList;
 		this.isHost = isHost;
 		this.isAlive = true;
+		this.isAddingSegment = addingSegment;
 	}
 
 	public SnakeData(String... params)
@@ -33,9 +34,10 @@ public class SnakeData
 		this.name = params[0];
 		this.color = Color.fromString(params[1]);
 		this.direction = Direction.fromString(params[2]);
-		this.pointList =PointList.fromString(params[3]);
+		this.pointList = PointList.fromString(params[3]);
 		this.isHost = Boolean.parseBoolean(params[4]);
 		this.isAlive = Boolean.parseBoolean(params[5]);
+		this.isAddingSegment = Boolean.parseBoolean(params[6]);
 	}
 
 	public SnakeData()
@@ -46,6 +48,7 @@ public class SnakeData
 		this.direction = Direction.DOWN;
 		this.isHost = false;
 		this.isAlive = true;
+		this.isAddingSegment = false;
 	}
 
 	public SnakeData(String splittableString)
@@ -56,17 +59,22 @@ public class SnakeData
 
 	// Fields that are shared/updated/used between client/server
 
+	
 	private String name;
 	private Color color;
 	private Direction direction;
 	private PointList pointList;
 	private boolean isHost;
 	private boolean isAlive;
+	private boolean isAddingSegment;	
 	
+	// Remember snakes keep getting updated after they die. might wanna do smthing abt that
 	public void updateBasedOn(SnakeUpdatePacket pack)
 	{
 		SnakeData updated = pack.getClientData();
-
+		
+		boolean initPointList = true;
+		
 		ArrayList<Field> fieldsToTransfer = ReflectionTools.getFieldsThatUpdate(SnakeData.class);
 		for (int i = 0; i < fieldsToTransfer.size(); i++)
 		{       // Update the fields of this object with the corresponding fields of the updated
@@ -75,12 +83,31 @@ public class SnakeData
 				Field f = fieldsToTransfer.get(i);
 				f.setAccessible(true);
 				Object updatedValue = f.get(updated);
-				f.set(this, updatedValue); 
+				if (!(f.getName().equals("pointList") && (updatedValue.toString() == "" || updatedValue.toString().equals("") || updatedValue.toString() == null))) 
+				{
+					f.set(this, updatedValue); 
+				}
+				else
+					initPointList = false;				
 			}
 			catch (IllegalArgumentException | IllegalAccessException e)
 			{
 				e.printStackTrace();
 			}
+		}
+				
+		if (!initPointList && isAlive) // Move the snake if the pointList is null (move it on the client for efficiency)
+		{
+			Point oldHead = pointList.get(0);
+			Point head = oldHead.addVector(direction.getVector());
+			head = GameplayClient.keepInBounds(head);
+			
+			pointList.add(0, head);
+			
+			if (isAddingSegment)
+				isAddingSegment = false;
+			else
+				pointList.remove(pointList.size() - 1);
 		}
 	}
 
@@ -134,10 +161,22 @@ public class SnakeData
 		return isAlive;
 	}
 
-	public void setAlive(boolean isAlive)
+	public void setIsAlive(boolean isAlive)
 	{
 		this.isAlive = isAlive;
 	}
+	
+	public boolean isAddingSegment()
+	{
+		return isAddingSegment;
+	}
+	
+	public void setAddingSegment(boolean addingSegment)
+	{
+		isAddingSegment = addingSegment;
+	}
+	
+	/////////////// 
 	
 	public int getLength()
 	{
@@ -167,7 +206,6 @@ public class SnakeData
 		this.pointList = pointList;		
 	}
 
-
 	// Server side fields and methods, not updated when updateBasedOn(SnakeUpdatePacket pack) is called
     // on the client side of this SnakeData, all of these fields will be null
 	
@@ -176,7 +214,10 @@ public class SnakeData
 	private Socket $socket;
 	private ArrayList<Direction> $directionBuffer;
 	private boolean $buffTranslucentActive;
+	private boolean $buffHungryActive;
 	private int $foodInBelly;
+	private boolean $playerEndedHungryBuffEarly = false;
+	private boolean $playerEndedTranslucentBuffEarly = false;
 	
 	public void grantBuff(BuffType buff)
 	{
@@ -186,7 +227,23 @@ public class SnakeData
 		{
 		case BUFF_TRANSLUCENT:
 			$buffTranslucentActive = true;
-			removeBuffTimer.addActionListener((e) -> $buffTranslucentActive = false);
+			removeBuffTimer.addActionListener((e) ->
+			{
+				if (!$playerEndedTranslucentBuffEarly)
+					$buffTranslucentActive = false;
+				else
+					$playerEndedTranslucentBuffEarly = false;
+			});
+			break;
+		case BUFF_HUNGRY:
+			$buffHungryActive = true;
+			removeBuffTimer.addActionListener((e) ->
+			{
+				if (!$playerEndedHungryBuffEarly)
+					$buffHungryActive = false;
+				else
+					$playerEndedHungryBuffEarly = false;
+			});
 			break;
 		default:
 			break;
@@ -194,14 +251,43 @@ public class SnakeData
 		removeBuffTimer.start();
 	}
 	
+	public void removeAllBuffsEarly()
+	{
+		removeHungryBuffEarly();
+		removeTranslucentBuffEarly();
+	}
+	
+	public void removeTranslucentBuffEarly()
+	{
+		if (hasBuffTranslucent())
+		{
+			$buffTranslucentActive = false;
+			$playerEndedHungryBuffEarly = true;
+		}
+	}
+	
+	public void removeHungryBuffEarly()
+	{
+		if (hasBuffHungry())
+		{
+			$buffHungryActive = false;
+			$playerEndedHungryBuffEarly = true;
+		}
+	}
+	
 	public boolean hasBuffTranslucent()
 	{
 		return $buffTranslucentActive;
 	}
 	
+	public boolean hasBuffHungry()
+	{
+		return $buffHungryActive;
+	}
+	
 	public boolean hasAnyBuffs()
 	{
-		return $buffTranslucentActive; // || otherBuffActive || otherBuff2Active..
+		return $buffTranslucentActive || $buffHungryActive; // || otherBuffActive || otherBuff2Active..
 	}
 	
 	public boolean hasFoodInBelly()
@@ -271,11 +357,14 @@ public class SnakeData
 
 	public void setDrawScript(SnakeDrawScript script)
 	{
+		if ($currentDrawScript != null)
+			$currentDrawScript.end();
 		$currentDrawScript = script;
 	}
 
 	public void endBuffDrawScript()
 	{
+		$currentDrawScript.end();
 		$currentDrawScript = null;
 	}
 	
@@ -291,13 +380,13 @@ public class SnakeData
 
 	public void draw(Graphics g)
 	{
-		if ($currentDrawScript != null)
+		if ($currentDrawScript != null && $currentDrawScript.hasStarted())
 			$currentDrawScript.drawSnake(g);
 		else if (isAlive)
 			drawSnakeNormally(g);
 	}
 
-	private void drawSnakeNormally(Graphics g)
+	public void drawSnakeNormally(Graphics g)
 	{
 		int drawSize = GameplayClient.UNIT_SIZE;
 		for (Point segmentLoc : pointList)

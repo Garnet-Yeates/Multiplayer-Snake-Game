@@ -9,6 +9,15 @@ public class SnakeUpdatePacket extends Packet
 	public SnakeUpdatePacket(SnakeData data)
 	{
 		super(data.toString());
+		/*
+		SnakeData clone = new SnakeData();
+		clone.setPointList(null);
+		clone.setIsAlive(data.isAlive());
+		clone.setColor(data.getColor());
+		clone.setDirection(data.getDirection());
+		clone.setIsHost(data.isHost());
+		clone.setIsAlive(data.isAlive());
+		clone.setAddingSegment(data.isAddingSegment());*/
 	}
 
 	public SnakeUpdatePacket(String splittableString)

@@ -24,6 +24,8 @@ public abstract class SnakeDrawScript implements TickListener
 	
 	private long maxDuration;
 	
+	private boolean started = false;
+	
 	private AnimationTickTimer timer;
 	
 	public SnakeDrawScript(GameplayClient container, SnakeData who, long duration)
@@ -39,7 +41,13 @@ public abstract class SnakeDrawScript implements TickListener
 	
 	protected final void start()
 	{
+		started = true;
 		timer.start();
+	}
+	
+	public boolean hasStarted()
+	{
+		return started;
 	}
 	
 	protected final void setTickRate(int tickRate)
@@ -128,4 +136,10 @@ public abstract class SnakeDrawScript implements TickListener
 	public void onReceiveTick() { /* Subclasses can choose to implement this */ }
 	
 	protected void onAnimationTick() { /* Subclasses can choose to implement this */ }
+
+	public void end()
+	{
+		drawingOn.removeTickListener(SnakeDrawScript.this);
+		timer.stop();
+	}
 }

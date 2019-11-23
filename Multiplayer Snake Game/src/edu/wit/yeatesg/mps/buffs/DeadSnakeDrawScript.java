@@ -8,18 +8,20 @@ import java.util.Random;
 import edu.wit.yeatesg.mps.network.clientserver.GameplayClient;
 import edu.wit.yeatesg.mps.phase0.otherdatatypes.Color;
 import edu.wit.yeatesg.mps.phase0.otherdatatypes.Point;
+import edu.wit.yeatesg.mps.phase0.otherdatatypes.PointList;
 import edu.wit.yeatesg.mps.phase0.otherdatatypes.SnakeData;
 import edu.wit.yeatesg.mps.phase0.otherdatatypes.Vector;
 
 public class DeadSnakeDrawScript extends SnakeDrawScript
 {	
-	private LittleSegmentGroup[] respectiveSegmentGroups;
-	
+	protected LittleSegmentGroup[] respectiveSegmentGroups;
+		
 	public static final int DURATION = 1000;
 	
 	public DeadSnakeDrawScript(GameplayClient container, SnakeData who)
 	{
 		super(container, who, DURATION);
+		System.out.println("new old fashioned dead dead");
 		int index = 0;
 		respectiveSegmentGroups = new LittleSegmentGroup[who.getLength()];
 		for (Point p : who.getPointList())
@@ -27,13 +29,26 @@ public class DeadSnakeDrawScript extends SnakeDrawScript
 			LittleSegmentGroup group = new LittleSegmentGroup(p);
 			respectiveSegmentGroups[index++] = group;	
 		}
+		velocityMultiplier = 1;
 		start();
+	}
+	
+	public DeadSnakeDrawScript(GameplayClient container, SnakeData who, PointList deadPoints)
+	{
+		super(container, who, DURATION);
+		int index = 0;
+		respectiveSegmentGroups = new LittleSegmentGroup[deadPoints.size()];
+		for (Point p : deadPoints)
+		{
+			LittleSegmentGroup group = new LittleSegmentGroup(p);
+			respectiveSegmentGroups[index++] = group;	
+		}
 	}
 
 	@Override
-	public void drawSnake(Graphics g)
+	public synchronized void drawSnake(Graphics g)
 	{
-		for (int i = 0; i < respectiveSegmentGroups.length; respectiveSegmentGroups[i].draw(g), i++);
+		for (int i = 0; i < respectiveSegmentGroups.length; respectiveSegmentGroups[i].draw(g.create()), i++);
 	}
 	
 	@Override
@@ -41,6 +56,8 @@ public class DeadSnakeDrawScript extends SnakeDrawScript
 	{
 		for (int i = 0; i < respectiveSegmentGroups.length; respectiveSegmentGroups[i].onTick(), i++);
 	}
+	
+	protected double velocityMultiplier = 1.0;
 	
 	private class LittleSegmentGroup
 	{
@@ -108,8 +125,6 @@ public class DeadSnakeDrawScript extends SnakeDrawScript
 				Random rand = new Random();
 				double randAddX = rand.nextDouble() / 2;
 				double randAddY = rand.nextDouble() / 2;
-			//	randAddX = 0;
-			//	randAddY = 0;
 				vec = vec.add(new Vector(randAddX, randAddY));
 				direction = vec.normalize();
 			}
@@ -133,8 +148,8 @@ public class DeadSnakeDrawScript extends SnakeDrawScript
 				
 				int oldDrawX = (int) drawX;
 				int oldDrawY = (int) drawY;
-				drawX += (direction.getX()*5);
-				drawY += (direction.getY()*5);	
+				drawX += (direction.getX()*5*velocityMultiplier);
+				drawY += (direction.getY()*5*velocityMultiplier);	
 				drawX = Double.isNaN(drawX) ? oldDrawX : drawX;
 				drawY = Double.isNaN(drawY) ? oldDrawY : drawY;
 			}

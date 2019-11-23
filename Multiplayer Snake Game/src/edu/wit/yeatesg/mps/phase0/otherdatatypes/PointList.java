@@ -19,20 +19,29 @@ public class PointList extends ArrayList<Point>
 	
 	public PointList(String... pointArgs)
 	{
+		initFromStringArray(pointArgs);
+	}
+	
+	private void initFromStringArray(String[] pointArgs)
+	{
 		Point p;
 		for (String pointString : pointArgs)
 			if ((p = Point.fromString(pointString)) != null)
 				add(p);
 	}
 	
+	
 	public PointList(String splittableString)
 	{
-		this(splittableString.split(REGEX));
+		if (splittableString == null)
+			return;
+		else
+			initFromStringArray(splittableString.split(REGEX));
 	}
 	
 	public PointList()
 	{
-		super(3000);
+		super(5000);
 	}
 	
 	public static PointList fromString(String splittable)

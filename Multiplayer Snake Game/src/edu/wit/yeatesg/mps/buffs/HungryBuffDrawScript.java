@@ -16,7 +16,7 @@ public class HungryBuffDrawScript extends SnakeDrawScript implements TickListene
 	public HungryBuffDrawScript(GameplayClient container, SnakeData who, long duration)
 	{
 		super(container, who, duration);
-		setTickRate(60);
+		setTickRate(20);
 
 		circleColor = new Color[5];
 		Color nextCol = Color.WHITE;
@@ -35,29 +35,30 @@ public class HungryBuffDrawScript extends SnakeDrawScript implements TickListene
 
 	private int offset = 0;
 
-	private int shiftWhiteEvery = 1; // ticks
 
-	public static final int MAX_SHIFT_EVERY = 15;
+	public static final int MAX_SHIFT_EVERY = 20;
+	public static final int MIN_SHIFT_EVERY = 2;
 	public static final double FLASH_AT = 0.7;
 	
 	@Override
-	public void drawSnake(Graphics g)
+	public synchronized void drawSnake(Graphics g)
 	{	
 		double progress = getProgress();
 		double startRaisingShift = 0.7;
+		int shiftWhiteEvery = MIN_SHIFT_EVERY;
 		if (progress > startRaisingShift)
 		{
 			double shiftProgress = (progress - startRaisingShift) / (1 - startRaisingShift);
 			shiftWhiteEvery = (int) (shiftProgress * MAX_SHIFT_EVERY);
-			shiftWhiteEvery = shiftWhiteEvery < 1 ? 1 : shiftWhiteEvery;
+			shiftWhiteEvery = shiftWhiteEvery < MIN_SHIFT_EVERY ? MIN_SHIFT_EVERY : shiftWhiteEvery;
 		}
 		
-		if (shiftWhiteEvery != 0 && currentAnimationTick % shiftWhiteEvery == 0)
+		if (currentAnimationTick % shiftWhiteEvery == 0)
 			offset = (offset + 1) % circleColor.length;
 
 		Point[] snakeLocs = beingDrawn.getPointList().toArray(new Point[0]);
 
-		int numThreads = 10;
+		int numThreads = 4;
 		Thread[] threads = new Thread[numThreads];
 		ThreadTool[] tools = ThreadTool.splitIntoThreads(beingDrawn.getLength(), numThreads);
 		int colIndex = offset;
@@ -67,6 +68,7 @@ public class HungryBuffDrawScript extends SnakeDrawScript implements TickListene
 			if (i > 0)
 				colIndex = (colIndex + (tools[i - 1].getEndIndex() - tools[i - 1].getStartIndex())) % circleColor.length;
 			final int fColIndex = colIndex;
+			final Graphics g2 = g.create();
 			Thread t = new Thread(() ->
 			{
 				Iterator<Integer> it = tool.iterator();
@@ -80,8 +82,8 @@ public class HungryBuffDrawScript extends SnakeDrawScript implements TickListene
 					int drawX = drawPoint.getX();
 					int drawY = drawPoint.getY();
 					int drawSize = GameplayClient.UNIT_SIZE;
-					g.setColor(drawCol);
-					g.fillRect(drawX, drawY, drawSize, drawSize);
+					g2.setColor(drawCol);
+					g2.fillRect(drawX, drawY, drawSize, drawSize);
 				}
 			});
 			threads[i] = t;
