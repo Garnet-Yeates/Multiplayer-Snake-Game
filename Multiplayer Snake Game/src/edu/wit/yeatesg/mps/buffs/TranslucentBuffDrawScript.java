@@ -25,7 +25,7 @@ public class TranslucentBuffDrawScript extends SnakeDrawScript
 		
 		int outlineThickness = getOutlineThicknessBasedOnProgress();
 
-		for (Point p : beingDrawn.getPointList())
+		for (Point p : beingDrawn.getPointList(true))
 		{
 			int drawX = GameplayClient.getPixelCoord(p.getX());
 			int drawY = GameplayClient.getPixelCoord(p.getY());	

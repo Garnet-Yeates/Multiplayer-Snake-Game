@@ -106,4 +106,11 @@ public class SnakeList extends ArrayList<SnakeData>
 				list.add(dat.getOutputStream());
 		return list;
 	}
+	
+	public SnakeList clone()
+	{
+		SnakeList clone = new SnakeList();
+		clone.addAll(this);
+		return clone;
+	}
 }

@@ -24,7 +24,7 @@ public class DeadSnakeDrawScript extends SnakeDrawScript
 		System.out.println("new old fashioned dead dead");
 		int index = 0;
 		respectiveSegmentGroups = new LittleSegmentGroup[who.getLength()];
-		for (Point p : who.getPointList())
+		for (Point p : who.getPointList(false))
 		{
 			LittleSegmentGroup group = new LittleSegmentGroup(p);
 			respectiveSegmentGroups[index++] = group;	

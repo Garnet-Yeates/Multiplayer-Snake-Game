@@ -11,7 +11,7 @@ import edu.wit.yeatesg.mps.phase0.otherdatatypes.SnakeData;
 
 public abstract class SnakeDrawScript implements TickListener
 {
-	private GameplayClient drawingOn;
+	protected GameplayClient drawingOn;
 
 	protected SnakeData beingDrawn;
 
@@ -76,9 +76,7 @@ public abstract class SnakeDrawScript implements TickListener
 				justTicked = true;
 				if (System.currentTimeMillis() - startTime >= maxDuration)
 				{
-					beingDrawn.endBuffDrawScript();
-					drawingOn.removeTickListener(SnakeDrawScript.this);
-					stop();
+					onEnd();
 				}
 			});
 		}
@@ -137,8 +135,14 @@ public abstract class SnakeDrawScript implements TickListener
 	
 	protected void onAnimationTick() { /* Subclasses can choose to implement this */ }
 
-	public void end()
+	public void endEarly()
 	{
+		onEnd();
+	}
+	
+	protected void onEnd()
+	{
+		beingDrawn.onDrawScriptEnd();
 		drawingOn.removeTickListener(SnakeDrawScript.this);
 		timer.stop();
 	}

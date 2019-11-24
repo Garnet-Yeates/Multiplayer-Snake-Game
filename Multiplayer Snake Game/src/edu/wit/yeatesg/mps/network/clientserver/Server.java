@@ -257,7 +257,7 @@ public class Server implements Runnable, ActionListener
 				if (!aClient.getDirectionBuffer().isEmpty())
 					aClient.setDirection(aClient.getDirectionBuffer().remove(0));
 				
-				PointList points = aClient.getPointList();
+				PointList points = aClient.getPointList(true);
 				oldTailLocations.put(aClient, points.get(points.size() - 1));
 
 				Point oldHead = points.get(0);
@@ -277,7 +277,7 @@ public class Server implements Runnable, ActionListener
 		{
 			if (aClient.isAlive())
 			{
-				Point head = aClient.getPointList().get(0);
+				Point head = aClient.getPointList(false).get(0);
 				boolean colliding = false;
 				SnakeList otherClients = new SnakeList();
 				for (SnakeData bClient : connectedClients)
@@ -310,12 +310,11 @@ public class Server implements Runnable, ActionListener
 					if (interceptingSnake == aClient)
 						interceptingIndex = Server.getInterceptingIndex(head, aClient);
 					
-					final int MAX_BITE_OFF = Fruit.MIN_FRUIT_HUNGRY_LENGTH - 1;
 					int howManyBitOff = interceptingSnake.getLength() - interceptingIndex;
-					if ((interceptingSnake.getLength() >= Fruit.MIN_FRUIT_HUNGRY_LENGTH && howManyBitOff <= MAX_BITE_OFF) || interceptingSnake == aClient)
+					if ((interceptingSnake.getLength() >= Fruit.MIN_FRUIT_HUNGRY_LENGTH && howManyBitOff <= Fruit.MAX_BITE_OFF) || interceptingSnake == aClient)
 					{
 						int length = interceptingSnake.getLength();
-						PointList clone = interceptingSnake.getPointList();
+						PointList clone = interceptingSnake.getPointList(true);
 						for (int i = length - 1; i >= interceptingIndex; clone.remove(i), i--);
 						interceptingSnake.setPointList(clone);
 						if (interceptingSnake != aClient)
@@ -425,7 +424,7 @@ public class Server implements Runnable, ActionListener
 					for (int y = 0; y < GameplayClient.NUM_VERTICAL_SPACES; y++)
 						availableLocations.add(new Point(x, y));
 				for (SnakeData client : connectedClients)
-					availableLocations.removeAll(client.getPointList());
+					availableLocations.removeAll(client.getPointList(false));
 				Point randomAvailableLoc = availableLocations.get(rand.nextInt(availableLocations.size()));
 				addedFruit = new Fruit(this, randomAvailableLoc);
 				spawned = true;
@@ -446,7 +445,7 @@ public class Server implements Runnable, ActionListener
 	{
 		int covered = 0;
 		for (SnakeData snake : connectedClients)
-			covered += snake.getPointList().size();
+			covered += snake.getLength();
 		return covered;
 	}
 	
@@ -478,7 +477,7 @@ public class Server implements Runnable, ActionListener
 	{
 		int theIndex = -1;
 		int i = 0;
-		for (Point possible : theSnake.getPointList())
+		for (Point possible : theSnake.getPointList(false))
 		{
 			if (possible.equals(point))
 			{
@@ -577,7 +576,12 @@ public class Server implements Runnable, ActionListener
 			exiting.getSocket().close();
 		}
 		catch (IOException e) { }
-		connectedClients.remove(exiting);
+		
+		synchronized (connectedClients)
+		{
+			connectedClients.remove(exiting);
+
+		}
 	}
 
 	private void closeAllConnections()
@@ -597,10 +601,14 @@ public class Server implements Runnable, ActionListener
 
 	public synchronized void sendToAll(Packet p)
 	{
-		for (SnakeData dat : connectedClients)
+//		Avoid ConcurrentModificationException in connectedClients if a packet is sending while a client disconnects 
+		synchronized (connectedClients)
 		{
-			p.setDataStream(dat.getOutputStream());
-			p.send();
+			for (SnakeData dat : connectedClients)
+			{
+				p.setDataStream(dat.getOutputStream());
+				p.send();
+			}
 		}
 	}
 }

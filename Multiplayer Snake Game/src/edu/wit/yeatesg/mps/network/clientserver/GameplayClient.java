@@ -47,12 +47,12 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 	public static final int JAR_OFFSET_X = 9;
 	public static final int JAR_OFFSET_Y = 10;
 
-	public static final int NUM_HORIZONTAL_UNITS = 80;
+	public static final int NUM_HORIZONTAL_UNITS = 85;
 	public static final int NUM_HORIZONTAL_SPACES = NUM_HORIZONTAL_UNITS + 1;
-	public static final int NUM_VERTICAL_UNITS = 40;
+	public static final int NUM_VERTICAL_UNITS = 40; // 40
 	public static final int NUM_VERTICAL_SPACES = NUM_VERTICAL_UNITS + 1;
-	public static final int UNIT_SIZE = 20; // Pixels
-	public static final int SPACE_SIZE = 3; 
+	public static final int UNIT_SIZE = 18; // Pixels
+	public static final int SPACE_SIZE = 4; 
 	public static final int MAX_AREA = GameplayClient.NUM_HORIZONTAL_UNITS*GameplayClient.NUM_VERTICAL_UNITS;
 
 	public static final int MAX_OUTLINE_THICKNESS = UNIT_SIZE / 2;
@@ -163,15 +163,15 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 	{
 		SnakeData bitten = allClients.get(packetReceiving.getBitten());
 		SnakeData biter = allClients.get(packetReceiving.getBiting());
-		biter.endBuffDrawScript();
+		biter.endBuffDrawScriptEarly();
 		int interceptingIndex = packetReceiving.getInterceptingIndex();
-		PointList clone = bitten.getPointList();
+		PointList bittenPointListClone = bitten.getPointList(true);
 		PointList bitOff = new PointList();
-		for (int i = clone.size() - 1; i >= interceptingIndex; bitOff.add(clone.get(i)), clone.remove(i), i--);
-		bitten.setPointList(clone);
+		for (int i = bittenPointListClone.size() - 1; i >= interceptingIndex; bitOff.add(bittenPointListClone.get(i)), bittenPointListClone.remove(i), i--);
+		bitten.setPointList(bittenPointListClone);
+	//	bitten.setPointList(bittenPointListRef);
 		new SnakeBiteDrawScript(this, bitten, bitOff);
 	}
-
 
 	private void onMessagePacketReceive(MessagePacket msgPacket)
 	{
@@ -311,6 +311,36 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 	public static Point getPixelCoords(Point segmentCoords)
 	{
 		return new Point(getPixelCoord(segmentCoords.getX()), getPixelCoord(segmentCoords.getY()));
+	}
+	
+	/**
+	 * Obtains a reference to the Client that is connected to this GameplayClient JPanel
+	 * @return a SnakeData representing the client
+	 */
+	public SnakeData getClient()
+	{
+		return thisClient;
+	}
+	
+	/**
+	 * Obtains a list of the Clients in this game that are not equal to the Client that this GameplayClient
+	 * is connected to
+	 * @return a SnakeList of the other clients
+	 */
+	public SnakeList getOtherClients()
+	{
+		SnakeList clone = getAllClients();
+		clone.remove(getClient());
+		return clone;
+	}
+	
+	/**
+	 * Obtains a list of all of the clients that this client is connected to, including itself
+	 * @return a SnakeList containing these clients
+	 */
+	public SnakeList getAllClients()
+	{
+		return allClients.clone();
 	}
 
 	@Override

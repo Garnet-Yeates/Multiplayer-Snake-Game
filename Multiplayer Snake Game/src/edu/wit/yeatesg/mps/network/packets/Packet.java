@@ -89,10 +89,7 @@ public abstract class Packet
 		{
 			outputStream.writeUTF(getUTF());
 		}
-		catch (IOException e) 
-		{
-			e.printStackTrace();
-		}
+		catch (IOException e) { }
 	}
 
 	public void setDataStream(DataOutputStream os)

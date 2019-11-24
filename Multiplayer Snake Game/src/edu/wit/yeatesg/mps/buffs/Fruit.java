@@ -18,6 +18,7 @@ public class Fruit
 	private Point location;
 	
 	public static final int MIN_FRUIT_HUNGRY_LENGTH = 31;
+	public static final int MAX_BITE_OFF = MIN_FRUIT_HUNGRY_LENGTH - 1;;
 	
 	public Fruit(FruitType type, Point location)
 	{
@@ -31,13 +32,15 @@ public class Fruit
 		Random rand = new Random();
 		ArrayList<FruitType> possibleTypes = new ArrayList<>();
 		
-//		If all Snake's aren't at least MIN_FRUIT_HUNGRY_LENGTH units, can't spawn hungry fruit
 		for (FruitType type : FruitType.values())
 			possibleTypes.add(type);
+		
 		boolean hungryFruitPossible = true;
+//		If any snake's length in the game is less than MIN_FRUIT_HUNGRY_LENGTH then hungry fruit can't spawn
 		for (SnakeData living : creating.getConnectedClients().getAliveSnakes())
 			if (living.getLength() < MIN_FRUIT_HUNGRY_LENGTH)
 				hungryFruitPossible = false;
+//		Only one Hungry Fruit can be on the map at once
 		for (Fruit f : creating.getAllFruit())
 			if (f.getFruitType() == FruitType.FRUIT_HUNGRY)
 				hungryFruitPossible = false;

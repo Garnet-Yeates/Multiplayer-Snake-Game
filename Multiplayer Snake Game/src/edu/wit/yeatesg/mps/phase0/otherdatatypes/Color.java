@@ -46,4 +46,25 @@ public class Color extends java.awt.Color
 		int b = Integer.parseInt(colorString.substring(4, 6), 16);
 		return new Color(r, g, b);
 	}
+	
+	public static double[] getChangeRate(Color start, Color end, int length)
+	{
+		double startR = start.getRed(), startG = start.getGreen(), startB = start.getBlue();
+		double endR = end.getRed(), endG = end.getGreen(), endB = end.getBlue();
+		double rDiff = endR - startR, gDiff = endG - startG, bDiff = endB - startB;
+		return new double[] { rDiff / length,  gDiff / length, bDiff / length };
+	}
+	
+	public static Color[] getBlendArray(Color start, Color end, int length)
+	{
+		Color[] arr = new Color[length];
+		double[] changeRate = getChangeRate(start, end, length);
+		double currR = start.getRed(), currG = start.getGreen(), currB = start.getBlue();
+		for (int i = 0; i < length; i++)
+		{
+			arr[i] = new Color((int) currR, (int) currG, (int) currB);
+			currR += changeRate[0]; currG += changeRate[1]; currB += changeRate[2];
+		}
+		return arr;
+	}
 }

@@ -11,6 +11,7 @@ import javax.swing.Timer;
 
 import edu.wit.yeatesg.mps.buffs.SnakeDrawScript;
 import edu.wit.yeatesg.mps.buffs.BuffType;
+import edu.wit.yeatesg.mps.buffs.Fruit;
 import edu.wit.yeatesg.mps.network.clientserver.GameplayClient;
 import edu.wit.yeatesg.mps.network.packets.SnakeUpdatePacket;
 
@@ -59,7 +60,7 @@ public class SnakeData
 
 	// Fields that are shared/updated/used between client/server
 
-	
+
 	private String name;
 	private Color color;
 	private Direction direction;
@@ -67,14 +68,22 @@ public class SnakeData
 	private boolean isHost;
 	private boolean isAlive;
 	private boolean isAddingSegment;	
-	
+
+	private boolean $isUpdating;
+
+	public boolean isUpdating()
+	{
+		return $isUpdating;
+	}
+
 	// Remember snakes keep getting updated after they die. might wanna do smthing abt that
 	public void updateBasedOn(SnakeUpdatePacket pack)
 	{
+		$isUpdating = true;
 		SnakeData updated = pack.getClientData();
-		
+
 		boolean initPointList = true;
-		
+
 		ArrayList<Field> fieldsToTransfer = ReflectionTools.getFieldsThatUpdate(SnakeData.class);
 		for (int i = 0; i < fieldsToTransfer.size(); i++)
 		{       // Update the fields of this object with the corresponding fields of the updated
@@ -95,20 +104,23 @@ public class SnakeData
 				e.printStackTrace();
 			}
 		}
-				
+
 		if (!initPointList && isAlive) // Move the snake if the pointList is null (move it on the client for efficiency)
 		{
+			PointList pointList = this.pointList.clone(); 
 			Point oldHead = pointList.get(0);
 			Point head = oldHead.addVector(direction.getVector());
 			head = GameplayClient.keepInBounds(head);
-			
+
 			pointList.add(0, head);
-			
+
 			if (isAddingSegment)
 				isAddingSegment = false;
 			else
 				pointList.remove(pointList.size() - 1);
+			this.pointList = pointList;
 		}
+		$isUpdating = false;
 	}
 
 	public Color getColor()
@@ -121,9 +133,9 @@ public class SnakeData
 		color = c;
 	}
 
-	public PointList getPointList()
+	public PointList getPointList(boolean clone)
 	{
-		return pointList.clone();
+		return clone ? pointList.clone() : pointList;
 	}
 
 	public String getClientName()
@@ -165,19 +177,19 @@ public class SnakeData
 	{
 		this.isAlive = isAlive;
 	}
-	
+
 	public boolean isAddingSegment()
 	{
 		return isAddingSegment;
 	}
-	
+
 	public void setAddingSegment(boolean addingSegment)
 	{
 		isAddingSegment = addingSegment;
 	}
-	
+
 	/////////////// 
-	
+
 	public int getLength()
 	{
 		return pointList.size();
@@ -207,9 +219,9 @@ public class SnakeData
 	}
 
 	// Server side fields and methods, not updated when updateBasedOn(SnakeUpdatePacket pack) is called
-    // on the client side of this SnakeData, all of these fields will be null
-	
-	
+	// on the client side of this SnakeData, all of these fields will be null
+
+
 	private DataOutputStream $outputStream;
 	private Socket $socket;
 	private ArrayList<Direction> $directionBuffer;
@@ -218,7 +230,7 @@ public class SnakeData
 	private int $foodInBelly;
 	private boolean $playerEndedHungryBuffEarly = false;
 	private boolean $playerEndedTranslucentBuffEarly = false;
-	
+
 	public void grantBuff(BuffType buff)
 	{
 		Timer removeBuffTimer = new Timer(buff.getDuration(), null);
@@ -250,13 +262,13 @@ public class SnakeData
 		}
 		removeBuffTimer.start();
 	}
-	
+
 	public void removeAllBuffsEarly()
 	{
 		removeHungryBuffEarly();
 		removeTranslucentBuffEarly();
 	}
-	
+
 	public void removeTranslucentBuffEarly()
 	{
 		if (hasBuffTranslucent())
@@ -265,7 +277,7 @@ public class SnakeData
 			$playerEndedHungryBuffEarly = true;
 		}
 	}
-	
+
 	public void removeHungryBuffEarly()
 	{
 		if (hasBuffHungry())
@@ -274,27 +286,27 @@ public class SnakeData
 			$playerEndedHungryBuffEarly = true;
 		}
 	}
-	
+
 	public boolean hasBuffTranslucent()
 	{
 		return $buffTranslucentActive;
 	}
-	
+
 	public boolean hasBuffHungry()
 	{
 		return $buffHungryActive;
 	}
-	
+
 	public boolean hasAnyBuffs()
 	{
 		return $buffTranslucentActive || $buffHungryActive; // || otherBuffActive || otherBuff2Active..
 	}
-	
+
 	public boolean hasFoodInBelly()
 	{
 		return $foodInBelly > 0;
 	}	
-	
+
 	public void modifyFoodInBelly(int byHowMuch)
 	{
 		$foodInBelly += byHowMuch;
@@ -304,7 +316,7 @@ public class SnakeData
 	{
 		$directionBuffer = buffer;
 	}
-	
+
 	public ArrayList<Direction> getDirectionBuffer()
 	{
 		return $directionBuffer;
@@ -334,12 +346,12 @@ public class SnakeData
 	{
 		$socket = socket;
 	}
-	
+
 	public void addToPointList(Point adding)
 	{
 		pointList.add(adding);
 	}
-	
+
 	public int getOccurrenceOf(Point p)
 	{
 		int occurrences = 0;
@@ -357,22 +369,31 @@ public class SnakeData
 
 	public void setDrawScript(SnakeDrawScript script)
 	{
+		if (script == null)
+			throw new RuntimeException();
 		if ($currentDrawScript != null)
-			$currentDrawScript.end();
+			endBuffDrawScriptEarly();
 		$currentDrawScript = script;
 	}
 
-	public void endBuffDrawScript()
+	/**
+	 * Called when a draw script ends early 
+	 */
+	public void onDrawScriptEnd()
 	{
-		$currentDrawScript.end();
 		$currentDrawScript = null;
 	}
-	
+
+	public void endBuffDrawScriptEarly()
+	{
+		$currentDrawScript.endEarly();
+	}
+
 	public boolean hasBuffDrawScript()
 	{
 		return $currentDrawScript != null;
 	}
-	
+
 	public SnakeDrawScript getBuffDrawScript()
 	{
 		return $currentDrawScript;
@@ -386,27 +407,41 @@ public class SnakeData
 			drawSnakeNormally(g);
 	}
 
+	private boolean $currentlyEatable = false;
+	
+	public void setCurrentlyEatable(boolean currentlyEatable)
+	{
+		$currentlyEatable = currentlyEatable;
+	}
+	
 	public void drawSnakeNormally(Graphics g)
 	{
 		int drawSize = GameplayClient.UNIT_SIZE;
+		int index = 0;
 		for (Point segmentLoc : pointList)
 		{
-			Point drawCoords = GameplayClient.getPixelCoords(segmentLoc);
-			g.setColor(color);
-			if (getOccurrenceOf(segmentLoc) > 1)
+			if (!$currentlyEatable || index < getLength() - Fruit.MAX_BITE_OFF)
 			{
-				int outlineThickness = (int) (GameplayClient.MAX_OUTLINE_THICKNESS*0.65);
-				int offset = 0;
-				for (int i = 0; i < outlineThickness; i++)
+				Point drawCoords = GameplayClient.getPixelCoords(segmentLoc);
+				g.setColor(color);
+				if (getOccurrenceOf(segmentLoc) > 1)
 				{
-					g.drawRect(drawCoords.getX() + offset, drawCoords.getY() + offset, drawSize - 2*offset - 1, drawSize - 2*offset - 1);
-					offset++;
+					int outlineThickness = (int) (GameplayClient.MAX_OUTLINE_THICKNESS*0.65);
+					int offset = 0;
+					for (int i = 0; i < outlineThickness; i++)
+					{
+						g.drawRect(drawCoords.getX() + offset, drawCoords.getY() + offset, drawSize - 2*offset - 1, drawSize - 2*offset - 1);
+						offset++;
+					}
+				}
+				else
+				{
+					g.fillRect(drawCoords.getX(), drawCoords.getY(), drawSize, drawSize);
 				}
 			}
-			else
-			{
-				g.fillRect(drawCoords.getX(), drawCoords.getY(), drawSize, drawSize);
-			}
+			
+			index++;
 		}
+
 	}
 }

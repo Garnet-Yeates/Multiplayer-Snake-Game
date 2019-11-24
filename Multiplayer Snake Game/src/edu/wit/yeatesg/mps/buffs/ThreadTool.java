@@ -14,8 +14,9 @@ public class ThreadTool implements Iterable<Integer>
 		this.endIndex = endIndex;
 	}
 
-	public static ThreadTool[] splitIntoThreads(double size, int numThreads)
+	public static ThreadTool[] splitIntoThreads(double size)
 	{
+		int numThreads = ThreadTool.getSuggestedNumThreads((int) size);
 		ThreadTool[] toolArr = new ThreadTool[numThreads];
 		double[] fractions = new double[numThreads + 1];
 		for (int i = 0; i <= numThreads; i++)
@@ -91,5 +92,10 @@ public class ThreadTool implements Iterable<Integer>
 				}
 			}
 		}
+	}
+
+	public static int getSuggestedNumThreads(int length)
+	{
+		return length / 50 > 0 ? (10) : (length / 25 > 0 ? (5) : (1));
 	}
 }

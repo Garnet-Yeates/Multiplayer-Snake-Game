@@ -3,7 +3,9 @@ package edu.wit.yeatesg.mps.buffs;
 public enum FruitType
 {
 	// SORT BY RARITY (highest rarity should be at the left, lowest rarity should be at the right)
-	FRUIT_HUNGRY(BuffType.BUFF_HUNGRY, 10, 1), FRUIT_TRANSLUCENT(BuffType.BUFF_TRANSLUCENT, 5, 10), FRUIT_REGULAR(null, 30, 1);
+	FRUIT_HUNGRY(BuffType.BUFF_HUNGRY, 10, 2), FRUIT_TRANSLUCENT(BuffType.BUFF_TRANSLUCENT, 5, 15), FRUIT_REGULAR(null, 30, 1);
+	
+	// 20
 	
 	private BuffType connectedBuff;
 	private int segmentsGiven;
