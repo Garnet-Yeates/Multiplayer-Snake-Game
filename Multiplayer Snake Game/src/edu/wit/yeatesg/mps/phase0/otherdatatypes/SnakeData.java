@@ -10,8 +10,10 @@ import java.util.ArrayList;
 import javax.swing.Timer;
 
 import edu.wit.yeatesg.mps.buffs.SnakeDrawScript;
+import edu.wit.yeatesg.mps.buffs.TranslucentBuffDrawScript;
 import edu.wit.yeatesg.mps.buffs.BuffType;
 import edu.wit.yeatesg.mps.buffs.Fruit;
+import edu.wit.yeatesg.mps.buffs.HungryBuffDrawScript;
 import edu.wit.yeatesg.mps.network.clientserver.GameplayClient;
 import edu.wit.yeatesg.mps.network.packets.SnakeUpdatePacket;
 
@@ -231,31 +233,21 @@ public class SnakeData
 	private boolean $playerEndedHungryBuffEarly = false;
 	private boolean $playerEndedTranslucentBuffEarly = false;
 
+	Timer removeBuffTimer;
+	
 	public void grantBuff(BuffType buff)
-	{
-		Timer removeBuffTimer = new Timer(buff.getDuration(), null);
+	{	
+		removeBuffTimer = new Timer(buff.getDuration(), null);
 		removeBuffTimer.setRepeats(false);
 		switch (buff)
 		{
 		case BUFF_TRANSLUCENT:
 			$buffTranslucentActive = true;
-			removeBuffTimer.addActionListener((e) ->
-			{
-				if (!$playerEndedTranslucentBuffEarly)
-					$buffTranslucentActive = false;
-				else
-					$playerEndedTranslucentBuffEarly = false;
-			});
+			removeBuffTimer.addActionListener((e) -> $buffTranslucentActive = false );
 			break;
 		case BUFF_HUNGRY:
 			$buffHungryActive = true;
-			removeBuffTimer.addActionListener((e) ->
-			{
-				if (!$playerEndedHungryBuffEarly)
-					$buffHungryActive = false;
-				else
-					$playerEndedHungryBuffEarly = false;
-			});
+			removeBuffTimer.addActionListener((e) -> $buffHungryActive = false );
 			break;
 		default:
 			break;
@@ -274,7 +266,9 @@ public class SnakeData
 		if (hasBuffTranslucent())
 		{
 			$buffTranslucentActive = false;
-			$playerEndedHungryBuffEarly = true;
+			$playerEndedTranslucentBuffEarly = true;
+			if (removeBuffTimer != null)
+				removeBuffTimer.stop();
 		}
 	}
 
@@ -284,6 +278,8 @@ public class SnakeData
 		{
 			$buffHungryActive = false;
 			$playerEndedHungryBuffEarly = true;
+			if (removeBuffTimer != null)
+				removeBuffTimer.stop();
 		}
 	}
 
@@ -398,50 +394,61 @@ public class SnakeData
 	{
 		return $currentDrawScript;
 	}
+	
+	public boolean hasTranslucentBuffDrawScript()
+	{
+		return $currentDrawScript instanceof TranslucentBuffDrawScript;
+	}
+	
+	public boolean hasHungryBuffDrawScript()
+	{
+		return $currentDrawScript instanceof HungryBuffDrawScript;
+	}
 
-	public void draw(Graphics g)
+	public void drawScriptIfApplicable(Graphics g)
 	{
 		if ($currentDrawScript != null && $currentDrawScript.hasStarted())
 			$currentDrawScript.drawSnake(g);
-		else if (isAlive)
-			drawSnakeNormally(g);
-	}
-
-	private boolean $currentlyEatable = false;
-	
-	public void setCurrentlyEatable(boolean currentlyEatable)
-	{
-		$currentlyEatable = currentlyEatable;
 	}
 	
-	public void drawSnakeNormally(Graphics g)
+	public void drawNormallyIfApplicable(Graphics g, GameplayClient drawingOn)
 	{
-		int drawSize = GameplayClient.UNIT_SIZE;
-		int index = 0;
-		for (Point segmentLoc : pointList)
+		if ($currentDrawScript == null && isAlive)
+			drawSnakeNormally(g, drawingOn);
+	}
+	
+	public void drawSnakeNormally(Graphics g, GameplayClient drawingOn)
+	{
 		{
-			if (!$currentlyEatable || index < getLength() - Fruit.MAX_BITE_OFF)
+			boolean drawingSelf = this.equals(drawingOn.getClient());
+			int drawSize = GameplayClient.UNIT_SIZE;
+			int index = 0;
+			for (Point segmentLoc : pointList)
 			{
-				Point drawCoords = GameplayClient.getPixelCoords(segmentLoc);
-				g.setColor(color);
-				if (getOccurrenceOf(segmentLoc) > 1)
+				if (drawingSelf
+						|| !drawingOn.getClient().hasHungryBuffDrawScript()
+						|| index == 0
+						|| (getLength() > Fruit.MIN_FRUIT_HUNGRY_LENGTH && index < getLength() - Fruit.MAX_BITE_OFF))
 				{
-					int outlineThickness = (int) (GameplayClient.MAX_OUTLINE_THICKNESS*0.65);
-					int offset = 0;
-					for (int i = 0; i < outlineThickness; i++)
+					Point drawCoords = GameplayClient.getPixelCoords(segmentLoc);
+					g.setColor(color);
+					if (getOccurrenceOf(segmentLoc) > 1)
 					{
-						g.drawRect(drawCoords.getX() + offset, drawCoords.getY() + offset, drawSize - 2*offset - 1, drawSize - 2*offset - 1);
-						offset++;
+						int outlineThickness = (int) (GameplayClient.MAX_OUTLINE_THICKNESS*0.65);
+						int offset = 0;
+						for (int i = 0; i < outlineThickness; i++)
+						{
+							g.drawRect(drawCoords.getX() + offset, drawCoords.getY() + offset, drawSize - 2*offset - 1, drawSize - 2*offset - 1);
+							offset++;
+						}
+					}
+					else
+					{
+						g.fillRect(drawCoords.getX(), drawCoords.getY(), drawSize, drawSize);
 					}
 				}
-				else
-				{
-					g.fillRect(drawCoords.getX(), drawCoords.getY(), drawSize, drawSize);
-				}
+				index++;
 			}
-			
-			index++;
 		}
-
 	}
 }

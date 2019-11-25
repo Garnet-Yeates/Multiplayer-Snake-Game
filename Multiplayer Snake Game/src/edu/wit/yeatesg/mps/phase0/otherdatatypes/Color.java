@@ -52,7 +52,7 @@ public class Color extends java.awt.Color
 		double startR = start.getRed(), startG = start.getGreen(), startB = start.getBlue();
 		double endR = end.getRed(), endG = end.getGreen(), endB = end.getBlue();
 		double rDiff = endR - startR, gDiff = endG - startG, bDiff = endB - startB;
-		return new double[] { rDiff / length,  gDiff / length, bDiff / length };
+		return new double[] { rDiff / (length - 1),  gDiff / (length - 1), bDiff / (length - 1) };
 	}
 	
 	public static Color[] getBlendArray(Color start, Color end, int length)
@@ -66,5 +66,16 @@ public class Color extends java.awt.Color
 			currR += changeRate[0]; currG += changeRate[1]; currB += changeRate[2];
 		}
 		return arr;
+	}
+	
+	@Override
+	public boolean equals(Object obj)
+	{
+		if (obj instanceof Color)
+		{
+			Color other = (Color) obj;
+			return other.getRed() == getRed() && other.getGreen() == getGreen() && other.getBlue() == getBlue();
+		}
+		return false;
 	}
 }

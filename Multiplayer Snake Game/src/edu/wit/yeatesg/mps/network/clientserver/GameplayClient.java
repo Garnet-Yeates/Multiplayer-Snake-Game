@@ -47,12 +47,12 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 	public static final int JAR_OFFSET_X = 9;
 	public static final int JAR_OFFSET_Y = 10;
 
-	public static final int NUM_HORIZONTAL_UNITS = 85;
+	public static final int NUM_HORIZONTAL_UNITS = 90;
 	public static final int NUM_HORIZONTAL_SPACES = NUM_HORIZONTAL_UNITS + 1;
-	public static final int NUM_VERTICAL_UNITS = 40; // 40
+	public static final int NUM_VERTICAL_UNITS = 35; // 45
 	public static final int NUM_VERTICAL_SPACES = NUM_VERTICAL_UNITS + 1;
 	public static final int UNIT_SIZE = 18; // Pixels
-	public static final int SPACE_SIZE = 4; 
+	public static final int SPACE_SIZE = 1; 
 	public static final int MAX_AREA = GameplayClient.NUM_HORIZONTAL_UNITS*GameplayClient.NUM_VERTICAL_UNITS;
 
 	public static final int MAX_OUTLINE_THICKNESS = UNIT_SIZE / 2;
@@ -292,15 +292,18 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 		g.setColor(Color.BLACK);
 		g.fillRect(0, 0, WIDTH, HEIGHT);
 
+		for (SnakeData client : allClients)
+			client.drawNormallyIfApplicable(g, this);
+		
+		for (SnakeData client : allClients)
+			client.drawScriptIfApplicable(g);
+		
 		if (gameStartScript == null)
 			for (Fruit f : fruitList)
 				f.draw(g);
 
 		if (gameStartScript != null)
 			gameStartScript.draw(g);
-
-		for (SnakeData dat : allClients)
-			dat.draw(g);
 	}
 
 	public static final int getPixelCoord(int segmentCoord)

@@ -98,7 +98,7 @@ public class Server implements Runnable, ActionListener
 			}			
 		}
 	}
-	
+
 	private boolean gameStarted = false;
 
 	public boolean onAttemptConnect(Socket s, DataInputStream in, DataOutputStream out) throws IOException
@@ -117,10 +117,10 @@ public class Server implements Runnable, ActionListener
 		{
 			send(responsePacket, newClient);
 
-//			Client loop will start here (NetworkClient.startAutoReceiving() is called)
-//			by this time, the client should be linked to a LobbyGUI so the lobby GUI is listening
+			//			Client loop will start here (NetworkClient.startAutoReceiving() is called)
+			//			by this time, the client should be linked to a LobbyGUI so the lobby GUI is listening
 
-//			Send join order data of all the already connected clients to the new client
+			//			Send join order data of all the already connected clients to the new client
 			for (SnakeData client : connectedClients)
 			{
 				SnakeUpdatePacket pack = new SnakeUpdatePacket(client);
@@ -131,11 +131,11 @@ public class Server implements Runnable, ActionListener
 
 			connectedClients.add(newClient);
 
-//			Send the ClientData of the newly connected client to all of the connected clients (including the new client itself)
+			//			Send the ClientData of the newly connected client to all of the connected clients (including the new client itself)
 			SnakeUpdatePacket updatePack = new SnakeUpdatePacket(newClient);
 			sendToAll(updatePack);
-			
-//		    Notify all clients that someone joined so the lobby can be updated properly
+
+			//		    Notify all clients that someone joined so the lobby can be updated properly
 			MessagePacket notifyJoin = new MessagePacket(clientName, "SOMEONE JOINED");
 			sendToAll(notifyJoin);
 			return true;
@@ -167,8 +167,8 @@ public class Server implements Runnable, ActionListener
 	{
 		return connectedClients.size() == 4;
 	}
-	
-	public void onReceive(String data) 
+
+	public synchronized void onReceive(String data) 
 	{
 		Packet packetReceiving = Packet.parsePacket(data);
 		if (packetReceiving instanceof MessagePacket) 
@@ -207,7 +207,7 @@ public class Server implements Runnable, ActionListener
 	private void onGameStart()
 	{		
 		gameStarted = true;
-		
+
 		/*
 		 * Starts InitiateGamePacket to the clients which tells them to start a timer that had
 		 * numTicks ticks, is on tick 0 for initialDelay milliseconds, and is on each subsequent
@@ -219,12 +219,17 @@ public class Server implements Runnable, ActionListener
 		final int initialDelay = 3000; // 3000
 		InitiateGamePacket gameCounterPack = new InitiateGamePacket(initialDelay, gameStartDelay, numTicks);
 		sendToAll(gameCounterPack);
-		
+
+		for (SnakeData client : connectedClients)
+		{
+			client.modifyFoodInBelly(37);
+		}
+
 		spawnRandomFruit();
 		spawnRandomFruit();
 		spawnRandomFruit();
 		spawnRandomFruit();
-		
+
 		// Start the timer after gameStartDelay and start the game ticks
 		timer = new Timer(TICK_RATE, (e) -> tick());
 		timer.setInitialDelay(gameStartDelay);
@@ -244,11 +249,11 @@ public class Server implements Runnable, ActionListener
 		MessagePacket tickPacket = new MessagePacket("Server", "SERVER TICK");
 		sendToAll(tickPacket);
 	}
-	
+
 	private void doSnakeMovements()
 	{		
 		HashMap<SnakeData, Point> oldTailLocations = new HashMap<>();
-		
+
 		// Move each snake forward by one, store old tail location in HashMap
 		for (SnakeData aClient : connectedClients)
 		{
@@ -256,23 +261,23 @@ public class Server implements Runnable, ActionListener
 			{
 				if (!aClient.getDirectionBuffer().isEmpty())
 					aClient.setDirection(aClient.getDirectionBuffer().remove(0));
-				
+
 				PointList points = aClient.getPointList(true);
 				oldTailLocations.put(aClient, points.get(points.size() - 1));
 
 				Point oldHead = points.get(0);
 				Point head = oldHead.addVector(aClient.getDirection().getVector());
 				head = GameplayClient.keepInBounds(head);
-				
+
 				points.add(0, head);
 				points.remove(points.size() - 1);
 				aClient.setPointList(points);
 			}
 		}
-		
-//		^ Update the position of all snakes before doing collision checks ^
-		
-//		Handle collision, fruit pickup/spawning, segment adding
+
+		//		^ Update the position of all snakes before doing collision checks ^
+
+		//		Handle collision, fruit pickup/spawning, segment adding
 		for (SnakeData aClient : connectedClients)
 		{
 			if (aClient.isAlive())
@@ -283,8 +288,8 @@ public class Server implements Runnable, ActionListener
 				for (SnakeData bClient : connectedClients)
 					if (!bClient.equals(aClient) && bClient.isAlive()) // Collision upon dead snakes does not occur
 						otherClients.add(bClient);
-				
-//				If this Snake's head location intercepts any segment on any OTHER snake, it counts as a collision
+
+				//				If this Snake's head location intercepts any segment on any OTHER snake, it counts as a collision
 				SnakeData interceptingSnake = aClient;
 				int interceptingIndex = -1;
 				for (SnakeData otherClient : otherClients)
@@ -296,22 +301,22 @@ public class Server implements Runnable, ActionListener
 						colliding = true;
 					}
 				}
-					
+
 				int headOccurance = aClient.getOccurrenceOf(head);
-//				If this Snake's head location intercepts any of its own body segments more than once, it counts as a collision
+				//				If this Snake's head location intercepts any of its own body segments more than once, it counts as a collision
 				colliding = headOccurance > 2 || headOccurance > 1 && aClient.hasBuffHungry() ? true : colliding;
-				
-//				Set colliding to false if this Snake currently has the Translucent buff
+
+				//				Set colliding to false if this Snake currently has the Translucent buff
 				colliding = aClient.hasBuffTranslucent() ? false : colliding;
-	
+
 				if (colliding && aClient.hasBuffHungry())
 				{
 					colliding = false;
 					if (interceptingSnake == aClient)
 						interceptingIndex = Server.getInterceptingIndex(head, aClient);
-					
+
 					int howManyBitOff = interceptingSnake.getLength() - interceptingIndex;
-					if ((interceptingSnake.getLength() >= Fruit.MIN_FRUIT_HUNGRY_LENGTH && howManyBitOff <= Fruit.MAX_BITE_OFF) || interceptingSnake == aClient)
+					if ((interceptingIndex != 0 && howManyBitOff <= Fruit.MAX_BITE_OFF) || interceptingSnake == aClient)
 					{
 						int length = interceptingSnake.getLength();
 						PointList clone = interceptingSnake.getPointList(true);
@@ -320,7 +325,8 @@ public class Server implements Runnable, ActionListener
 						if (interceptingSnake != aClient)
 							aClient.modifyFoodInBelly(howManyBitOff);
 						aClient.removeHungryBuffEarly();
-						interceptingSnake.removeAllBuffsEarly();
+						if (!interceptingSnake.equals(aClient))
+							interceptingSnake.removeAllBuffsEarly();
 						SnakeBitePacket snakeBite = new SnakeBitePacket(aClient.getClientName(), interceptingSnake.getClientName(), howManyBitOff, interceptingIndex);
 						sendToAll(snakeBite);
 					}
@@ -329,46 +335,36 @@ public class Server implements Runnable, ActionListener
 						colliding = true;
 					}
 				}
-				
+
 				aClient.setIsAlive(!colliding);			
-			
-//				If client still alive, handle other stuff such as adding segments and picking up fruit
+
+				//				If client still alive, handle other stuff such as adding segments and picking up fruit
 				if (aClient.isAlive())
 				{
-//					Handle fruit pickup and the subsequent fruit spawning
+					//					Handle fruit pickup and the subsequent fruit spawning
 					if (hasInterceptingFruit(head))
 					{
 						Fruit pickingUp = getInterceptingFruit(head);
 						if (!pickingUp.hasAssociatedBuff() || !aClient.hasAnyBuffs())
 						{
-							boolean canPickUp = true;
-//							All other clients in the game must be at least certain length for the hungry fruit to be picked up
-							if (pickingUp.getFruitType() == FruitType.FRUIT_HUNGRY)
-								for (SnakeData otherClient : otherClients)
-									if (otherClient.getLength() < Fruit.MIN_FRUIT_HUNGRY_LENGTH)
-										canPickUp = false;
-							if (canPickUp)
-							{
-//								Remove this fruit from the fruit list, and add its segment value to snake belly
-								allFruit.remove(pickingUp);
-								int fruitValue = pickingUp.getFruitType().getNumSegmentsGiven();
-								aClient.modifyFoodInBelly(fruitValue);
-								
-//								Inform all clients that a player picked up a fruit so the Fruit is no longer drawn
-								FruitPickupPacket pack = new FruitPickupPacket(aClient.getClientName(), pickingUp);
-								sendToAll(pack); 
-								
-//								If this fruit has an associated buff, grant it to the player
-								if (pickingUp.hasAssociatedBuff())
-									aClient.grantBuff(pickingUp.getAssociatedBuff());
-								
-//								Spawn in a new Fruit somewhere else, send a FruitSpawnPacket to all clients
-								spawnRandomFruit();
-							}
-//							
+							//								Remove this fruit from the fruit list, and add its segment value to snake belly
+							allFruit.remove(pickingUp);
+							int fruitValue = pickingUp.getFruitType().getNumSegmentsGiven();
+							aClient.modifyFoodInBelly(fruitValue);
+
+							//								Inform all clients that a player picked up a fruit so the Fruit is no longer drawn
+							FruitPickupPacket pack = new FruitPickupPacket(aClient.getClientName(), pickingUp);
+							sendToAll(pack); 
+
+							//								If this fruit has an associated buff, grant it to the player
+							if (pickingUp.hasAssociatedBuff())
+								aClient.grantBuff(pickingUp.getAssociatedBuff());
+
+							//								Spawn in a new Fruit somewhere else, send a FruitSpawnPacket to all clients
+							spawnRandomFruit();	
 						}	
 					}
-					
+
 //					Handle the snake adding more segments as a result of recently eating a Fruit
 					if (aClient.hasFoodInBelly())
 					{
@@ -389,14 +385,14 @@ public class Server implements Runnable, ActionListener
 			}
 		}
 	}
-	
+
 	private ArrayList<Fruit> allFruit = new ArrayList<>();
 
 	public ArrayList<Fruit> getAllFruit()
 	{
 		return allFruit;
 	}
-	
+
 	public boolean spawnRandomFruit()
 	{
 		Random rand = new Random();
@@ -404,7 +400,7 @@ public class Server implements Runnable, ActionListener
 		Fruit addedFruit = null;
 		while (!spawned)
 		{
-//			If we have greater than a 1/20 chance of random spawning one, do this
+			//			If we have greater than a 1/20 chance of random spawning one, do this
 			if (getPercentCovered() < 0.95)
 			{
 				int randX = rand.nextInt(GameplayClient.NUM_HORIZONTAL_UNITS);
@@ -416,7 +412,7 @@ public class Server implements Runnable, ActionListener
 					spawned = true;
 				}
 			}
-//			If >90% of the map is covered, it is probably more efficient to just loop through a list of available spaces and choose a random index
+			//			If >90% of the map is covered, it is probably more efficient to just loop through a list of available spaces and choose a random index
 			else if (getPercentCovered() < 1)
 			{
 				ArrayList<Point> availableLocations = new ArrayList<>();
@@ -440,7 +436,7 @@ public class Server implements Runnable, ActionListener
 		}
 		return false;
 	}
-	
+
 	public int getCoveredArea()
 	{
 		int covered = 0;
@@ -448,17 +444,17 @@ public class Server implements Runnable, ActionListener
 			covered += snake.getLength();
 		return covered;
 	}
-	
+
 	public double getPercentCovered()
 	{
 		return (double) getCoveredArea() / GameplayClient.MAX_AREA;
 	}
-	
+
 	public boolean hasInterceptingFruit(Point p)
 	{
 		return getInterceptingFruit(p) != null;
 	}
-	
+
 	public Fruit getInterceptingFruit(Point p)
 	{
 		for (Fruit f : allFruit)
@@ -466,12 +462,12 @@ public class Server implements Runnable, ActionListener
 				return f;		
 		return null;
 	}
-	
+
 	public static boolean interceptsSnakesSegment(Point point, SnakeData theSnake)
 	{
 		return getInterceptingIndex(point, theSnake) != -1;
 	}
-	
+
 	// Returns last occurrence
 	public static int getInterceptingIndex(Point point, SnakeData theSnake)
 	{
@@ -487,7 +483,7 @@ public class Server implements Runnable, ActionListener
 		}
 		return theIndex;
 	}
-	
+
 	public boolean interceptsAnySnakeSegment(Point p)
 	{
 		for (SnakeData snake : connectedClients)
@@ -498,11 +494,14 @@ public class Server implements Runnable, ActionListener
 
 	private void updateAllClients()
 	{
-		for (SnakeData client : connectedClients)
+		synchronized (connectedClients)
 		{
-			SnakeData clientClone = new SnakeData(ReflectionTools.fieldsToString(SnakeData.REGEX, client, SnakeData.class, new String[] { "pointList" }));
-			SnakeUpdatePacket updatePack = new SnakeUpdatePacket(clientClone);
-			sendToAll(updatePack);
+			for (SnakeData client : connectedClients)
+			{
+				SnakeData clientClone = new SnakeData(ReflectionTools.fieldsToString(SnakeData.REGEX, client, SnakeData.class, new String[] { "pointList" }));
+				SnakeUpdatePacket updatePack = new SnakeUpdatePacket(clientClone);
+				sendToAll(updatePack);
+			}
 		}
 	}
 
@@ -547,7 +546,7 @@ public class Server implements Runnable, ActionListener
 				Direction lastEntered = keyBuffer.get(keyBuffer.size() - 1);
 				canAdd = lastEntered != entered && entered != lastEntered.getOpposite();
 			}
-			
+
 			if (canAdd)
 			{
 				keyBuffer.add(entered);
@@ -563,7 +562,7 @@ public class Server implements Runnable, ActionListener
 		// Bounce packet back to all clients
 		sendToAll(updatePacket);
 	}
-	
+
 	public SnakeList getConnectedClients()
 	{
 		return connectedClients;
@@ -576,7 +575,7 @@ public class Server implements Runnable, ActionListener
 			exiting.getSocket().close();
 		}
 		catch (IOException e) { }
-		
+
 		synchronized (connectedClients)
 		{
 			connectedClients.remove(exiting);
@@ -593,15 +592,15 @@ public class Server implements Runnable, ActionListener
 			closeConnection(dat);
 	}
 
-	public synchronized void send(Packet p, SnakeData to)
+	public void send(Packet p, SnakeData to)
 	{
 		p.setDataStream(to.getOutputStream());
 		p.send();
 	}
 
-	public synchronized void sendToAll(Packet p)
+	public void sendToAll(Packet p)
 	{
-//		Avoid ConcurrentModificationException in connectedClients if a packet is sending while a client disconnects 
+		//		Avoid ConcurrentModificationException in connectedClients if a packet is sending while a client disconnects 
 		synchronized (connectedClients)
 		{
 			for (SnakeData dat : connectedClients)

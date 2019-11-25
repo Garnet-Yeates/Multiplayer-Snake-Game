@@ -35,17 +35,8 @@ public class Fruit
 		for (FruitType type : FruitType.values())
 			possibleTypes.add(type);
 		
-		boolean hungryFruitPossible = true;
-//		If any snake's length in the game is less than MIN_FRUIT_HUNGRY_LENGTH then hungry fruit can't spawn
-		for (SnakeData living : creating.getConnectedClients().getAliveSnakes())
-			if (living.getLength() < MIN_FRUIT_HUNGRY_LENGTH)
-				hungryFruitPossible = false;
-//		Only one Hungry Fruit can be on the map at once
-		for (Fruit f : creating.getAllFruit())
-			if (f.getFruitType() == FruitType.FRUIT_HUNGRY)
-				hungryFruitPossible = false;
-		if (!hungryFruitPossible)
-			possibleTypes.remove(FruitType.FRUIT_HUNGRY);
+		if (creating.getPercentCovered() < 0 /*do 0.05 later*/)
+			possibleTypes.remove(type);
 		
 		for (FruitType type : possibleTypes)
 		{

@@ -18,7 +18,7 @@ public class SnakeBiteDrawScript extends DeadSnakeDrawScript
 	public synchronized void drawSnake(Graphics g)
 	{
 		super.drawSnake(g);
-		beingDrawn.drawSnakeNormally(g);
+		beingDrawn.drawSnakeNormally(g, drawingOn);
 	}
 
 }
