@@ -1,6 +1,6 @@
 package edu.wit.yeatesg.mps.network.packets;
 
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.Direction;
+import edu.wit.yeatesg.mps.otherdatatypes.Direction;
 
 public class DirectionChangePacket extends Packet
 {

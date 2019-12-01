@@ -8,12 +8,12 @@ import javax.swing.border.MatteBorder;
 import edu.wit.yeatesg.mps.network.packets.MessagePacket;
 import edu.wit.yeatesg.mps.network.packets.Packet;
 import edu.wit.yeatesg.mps.network.packets.SnakeUpdatePacket;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.Color;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.Direction;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.Point;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.PointList;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.SnakeData;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.SnakeList;
+import edu.wit.yeatesg.mps.otherdatatypes.Color;
+import edu.wit.yeatesg.mps.otherdatatypes.Direction;
+import edu.wit.yeatesg.mps.otherdatatypes.Point;
+import edu.wit.yeatesg.mps.otherdatatypes.PointList;
+import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
+import edu.wit.yeatesg.mps.otherdatatypes.SnakeList;
 
 import java.awt.Font;
 import java.awt.Graphics;

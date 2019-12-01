@@ -6,8 +6,8 @@ import java.awt.Graphics;
 import javax.swing.Timer;
 
 import edu.wit.yeatesg.mps.network.clientserver.GameplayClient;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.Color;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.SnakeData;
+import edu.wit.yeatesg.mps.otherdatatypes.Color;
+import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
 
 public abstract class SnakeDrawScript implements TickListener
 {

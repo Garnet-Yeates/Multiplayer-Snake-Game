@@ -1,4 +1,7 @@
-package edu.wit.yeatesg.mps.phase0.otherdatatypes;
+package edu.wit.yeatesg.mps.otherdatatypes;
+
+import java.awt.Graphics;
+import java.awt.Polygon;
 
 public class Point
 {

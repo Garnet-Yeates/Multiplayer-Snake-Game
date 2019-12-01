@@ -1,6 +1,6 @@
 package edu.wit.yeatesg.mps.network.packets;
 
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.SnakeData;
+import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
 
 public class SnakeUpdatePacket extends Packet
 {

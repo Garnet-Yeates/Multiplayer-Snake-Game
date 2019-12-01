@@ -10,9 +10,9 @@ import javax.management.RuntimeErrorException;
 import edu.wit.yeatesg.mps.network.packets.MessagePacket;
 import edu.wit.yeatesg.mps.network.packets.Packet;
 import edu.wit.yeatesg.mps.network.packets.SnakeUpdatePacket;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.DuplicateClientException;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.ServerFullException;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.SnakeData;
+import edu.wit.yeatesg.mps.otherdatatypes.DuplicateClientException;
+import edu.wit.yeatesg.mps.otherdatatypes.ServerFullException;
+import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
 
 public class NetworkClient implements Runnable
 {
@@ -104,5 +104,6 @@ public class NetworkClient implements Runnable
 	{
 		this.name = name;		
 	}
+
 
 }

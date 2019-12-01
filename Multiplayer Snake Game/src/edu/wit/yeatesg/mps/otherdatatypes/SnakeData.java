@@ -1,4 +1,4 @@
-package edu.wit.yeatesg.mps.phase0.otherdatatypes;
+package edu.wit.yeatesg.mps.otherdatatypes;
 
 
 import java.awt.Graphics;
@@ -71,17 +71,9 @@ public class SnakeData
 	private boolean isAlive;
 	private boolean isAddingSegment;	
 
-	private boolean $isUpdating;
-
-	public boolean isUpdating()
-	{
-		return $isUpdating;
-	}
-
-	// Remember snakes keep getting updated after they die. might wanna do smthing abt that
+	// Remember snakes keep getting updated after they die. might wanna do smthing abt that (maybe) (potentially)
 	public void updateBasedOn(SnakeUpdatePacket pack)
 	{
-		$isUpdating = true;
 		SnakeData updated = pack.getClientData();
 
 		boolean initPointList = true;
@@ -122,7 +114,6 @@ public class SnakeData
 				pointList.remove(pointList.size() - 1);
 			this.pointList = pointList;
 		}
-		$isUpdating = false;
 	}
 
 	public Color getColor()
@@ -190,12 +181,13 @@ public class SnakeData
 		isAddingSegment = addingSegment;
 	}
 
-	/////////////// 
-
 	public int getLength()
 	{
 		return pointList.size();
 	}
+	
+	
+	///
 
 	@Override
 	public boolean equals(Object obj)
@@ -230,29 +222,27 @@ public class SnakeData
 	private boolean $buffTranslucentActive;
 	private boolean $buffHungryActive;
 	private int $foodInBelly;
-	private boolean $playerEndedHungryBuffEarly = false;
-	private boolean $playerEndedTranslucentBuffEarly = false;
 
-	Timer removeBuffTimer;
+	private Timer $removeBuffTimer;
 	
 	public void grantBuff(BuffType buff)
 	{	
-		removeBuffTimer = new Timer(buff.getDuration(), null);
-		removeBuffTimer.setRepeats(false);
+		$removeBuffTimer = new Timer(buff.getDuration(), null);
+		$removeBuffTimer.setRepeats(false);
 		switch (buff)
 		{
 		case BUFF_TRANSLUCENT:
 			$buffTranslucentActive = true;
-			removeBuffTimer.addActionListener((e) -> $buffTranslucentActive = false );
+			$removeBuffTimer.addActionListener((e) -> $buffTranslucentActive = false );
 			break;
 		case BUFF_HUNGRY:
 			$buffHungryActive = true;
-			removeBuffTimer.addActionListener((e) -> $buffHungryActive = false );
+			$removeBuffTimer.addActionListener((e) -> { $buffHungryActive = false; System.out.println("buff ran out"); } );
 			break;
 		default:
 			break;
 		}
-		removeBuffTimer.start();
+		$removeBuffTimer.start();
 	}
 
 	public void removeAllBuffsEarly()
@@ -266,9 +256,8 @@ public class SnakeData
 		if (hasBuffTranslucent())
 		{
 			$buffTranslucentActive = false;
-			$playerEndedTranslucentBuffEarly = true;
-			if (removeBuffTimer != null)
-				removeBuffTimer.stop();
+			if ($removeBuffTimer != null)
+				$removeBuffTimer.stop();
 		}
 	}
 
@@ -277,9 +266,8 @@ public class SnakeData
 		if (hasBuffHungry())
 		{
 			$buffHungryActive = false;
-			$playerEndedHungryBuffEarly = true;
-			if (removeBuffTimer != null)
-				removeBuffTimer.stop();
+			if ($removeBuffTimer != null)
+				$removeBuffTimer.stop();
 		}
 	}
 

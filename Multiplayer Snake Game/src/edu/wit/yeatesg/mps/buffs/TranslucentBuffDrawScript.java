@@ -3,9 +3,9 @@ package edu.wit.yeatesg.mps.buffs;
 import java.awt.Graphics;
 
 import edu.wit.yeatesg.mps.network.clientserver.GameplayClient;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.Color;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.Point;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.SnakeData;
+import edu.wit.yeatesg.mps.otherdatatypes.Color;
+import edu.wit.yeatesg.mps.otherdatatypes.Point;
+import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
 
 public class TranslucentBuffDrawScript extends SnakeDrawScript
 {

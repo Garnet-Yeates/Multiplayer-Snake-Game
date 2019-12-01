@@ -6,11 +6,11 @@ import java.util.HashMap;
 import java.util.Random;
 
 import edu.wit.yeatesg.mps.network.clientserver.GameplayClient;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.Color;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.Point;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.PointList;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.SnakeData;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.Vector;
+import edu.wit.yeatesg.mps.otherdatatypes.Color;
+import edu.wit.yeatesg.mps.otherdatatypes.Point;
+import edu.wit.yeatesg.mps.otherdatatypes.PointList;
+import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
+import edu.wit.yeatesg.mps.otherdatatypes.Vector;
 
 public class DeadSnakeDrawScript extends SnakeDrawScript
 {	

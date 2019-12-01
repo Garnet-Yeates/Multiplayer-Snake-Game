@@ -1,11 +1,11 @@
 package edu.wit.yeatesg.mps.buffs;
 
 import edu.wit.yeatesg.mps.network.clientserver.GameplayClient;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.SnakeData;
+import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
 
 public enum BuffType
 {
-	BUFF_TRANSLUCENT(10000), BUFF_HUNGRY(10000);
+	BUFF_TRANSLUCENT(12000), BUFF_HUNGRY(15000);
 
 	private int duration;
 	

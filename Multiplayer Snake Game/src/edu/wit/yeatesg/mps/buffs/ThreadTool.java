@@ -96,6 +96,6 @@ public class ThreadTool implements Iterable<Integer>
 
 	public static int getSuggestedNumThreads(int length)
 	{
-		return length / 50 > 0 ? (10) : (length / 25 > 0 ? (5) : (1));
+		return length / 1000 > 0 ? 10 : 1;
 	}
 }

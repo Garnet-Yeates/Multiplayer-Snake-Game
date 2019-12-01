@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Collection;
 
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.ReflectionTools;
+import edu.wit.yeatesg.mps.otherdatatypes.ReflectionTools;
 
 public abstract class Packet
 {

@@ -1,4 +1,4 @@
-package edu.wit.yeatesg.mps.phase0.otherdatatypes;
+package edu.wit.yeatesg.mps.otherdatatypes;
 import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -11,8 +11,10 @@ import edu.wit.yeatesg.mps.network.clientserver.ConnectClient;
 
 public class Test
 {
-	public static void main(String[] args) {
-		new Thread(() -> {
+	public static void main(String[] args)
+	{
+		new Thread(() ->
+		{
 			new ConnectClient();
 		}).start();
 	}

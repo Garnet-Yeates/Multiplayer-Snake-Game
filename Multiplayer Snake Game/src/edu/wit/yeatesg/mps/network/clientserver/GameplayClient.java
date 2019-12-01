@@ -31,12 +31,12 @@ import edu.wit.yeatesg.mps.network.packets.Packet;
 import edu.wit.yeatesg.mps.network.packets.SnakeBitePacket;
 import edu.wit.yeatesg.mps.network.packets.SnakeDeathPacket;
 import edu.wit.yeatesg.mps.network.packets.SnakeUpdatePacket;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.Direction;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.Point;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.PointList;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.SnakeData;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.SnakeList;
-import edu.wit.yeatesg.mps.phase0.otherdatatypes.Vector;
+import edu.wit.yeatesg.mps.otherdatatypes.Direction;
+import edu.wit.yeatesg.mps.otherdatatypes.Point;
+import edu.wit.yeatesg.mps.otherdatatypes.PointList;
+import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
+import edu.wit.yeatesg.mps.otherdatatypes.SnakeList;
+import edu.wit.yeatesg.mps.otherdatatypes.Vector;
 
 public class GameplayClient extends JPanel implements ClientListener, KeyListener, WindowListener
 {	
@@ -47,13 +47,13 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 	public static final int JAR_OFFSET_X = 9;
 	public static final int JAR_OFFSET_Y = 10;
 
-	public static final int NUM_HORIZONTAL_UNITS = 90;
+	public static final int NUM_HORIZONTAL_UNITS = 95; // 95
 	public static final int NUM_HORIZONTAL_SPACES = NUM_HORIZONTAL_UNITS + 1;
-	public static final int NUM_VERTICAL_UNITS = 35; // 45
+	public static final int NUM_VERTICAL_UNITS = 50; // 50
 	public static final int NUM_VERTICAL_SPACES = NUM_VERTICAL_UNITS + 1;
-	public static final int UNIT_SIZE = 18; // Pixels
+	public static final int UNIT_SIZE = 18; // 18
 	public static final int SPACE_SIZE = 1; 
-	public static final int MAX_AREA = GameplayClient.NUM_HORIZONTAL_UNITS*GameplayClient.NUM_VERTICAL_UNITS;
+	public static final int MAX_AREA = GameplayClient.NUM_HORIZONTAL_UNITS * GameplayClient.NUM_VERTICAL_UNITS;
 
 	public static final int MAX_OUTLINE_THICKNESS = UNIT_SIZE / 2;
 
@@ -82,7 +82,7 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 	public void onReceive(String data)
 	{
 		Packet packetReceiving = Packet.parsePacket(data);
-//		System.out.println(thisClient.getClientName() + " received -> " + packetReceiving);
+				System.out.println(thisClient.getClientName() + " received -> " + packetReceiving);
 
 		switch (packetReceiving.getClass().getSimpleName())
 		{
@@ -133,7 +133,7 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 		BuffType buff = debuffPacket.getBuff();
 		buff.startDrawScript(this, allClients.get(debuffPacket.getReceiver()));
 	}
-	
+
 	private ArrayList<Fruit> fruitList = new ArrayList<>();
 
 	private void onReceiveFruitSpawnPacket(FruitSpawnPacket packetReceiving)
@@ -152,13 +152,13 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 			buffToGrant.startDrawScript(this, whoPickedUp);
 		}
 	}
-	
+
 	private void onSnakeDeathPacketReceive(SnakeDeathPacket packetReceiving)
 	{
 		SnakeData whoDied = allClients.get(packetReceiving.getSnakeName());
 		new DeadSnakeDrawScript(this, whoDied);
 	}
-	
+
 	private void onSnakeBitePacketReceive(SnakeBitePacket packetReceiving)
 	{
 		SnakeData bitten = allClients.get(packetReceiving.getBitten());
@@ -169,7 +169,7 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 		PointList bitOff = new PointList();
 		for (int i = bittenPointListClone.size() - 1; i >= interceptingIndex; bitOff.add(bittenPointListClone.get(i)), bittenPointListClone.remove(i), i--);
 		bitten.setPointList(bittenPointListClone);
-	//	bitten.setPointList(bittenPointListRef);
+		//	bitten.setPointList(bittenPointListRef);
 		new SnakeBiteDrawScript(this, bitten, bitOff);
 	}
 
@@ -194,7 +194,7 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 		new DeadSnakeDrawScript(this, leaver);
 		Timer removeTimer = new Timer(DeadSnakeDrawScript.DURATION, null);
 		removeTimer.setRepeats(false);
-		removeTimer.addActionListener((e) -> allClients.remove(allClients.indexOf(leaver)));
+		removeTimer.addActionListener((e) -> allClients.remove(leaver));
 		removeTimer.start();
 	}
 
@@ -202,7 +202,7 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 	{
 		System.exit(0);
 	}
-	
+
 	public ArrayList<TickListener> tickListeners = new ArrayList<TickListener>();
 
 	public void onServerTick()
@@ -211,12 +211,14 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 		for (TickListener listener : tickListeners)
 			listener.onReceiveTick();
 	}
-	
+
+	// Synchronized because these methods are called by timer threads in SnakeDrawScript if two scripts start at once, cmod will happen
 	public synchronized void addTickListener(TickListener listener)
 	{
 		tickListeners.add(listener);
 	}
-	
+
+	// Synchronized because these methods are called by timer threads in SnakeDrawScript if two scripts end at once, cmod will happen
 	public synchronized void removeTickListener(TickListener beingRemoved)
 	{
 		tickListeners.remove(beingRemoved);
@@ -284,8 +286,12 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 		}
 	}
 
+	// Synchronized because multiple threads can call paintComponent (from draw scripts). Probs not necessary
+	// to synchronize because the threads that call paintComponent will never make any
+	// modifications to the allClients list, which is the only thread-unsafe thing we are
+	// dealing with
 	@Override
-	protected void paintComponent(Graphics g)
+	protected synchronized void paintComponent(Graphics g)
 	{
 		super.paintComponent(g);
 
@@ -294,10 +300,10 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 
 		for (SnakeData client : allClients)
 			client.drawNormallyIfApplicable(g, this);
-		
+
 		for (SnakeData client : allClients)
 			client.drawScriptIfApplicable(g);
-		
+
 		if (gameStartScript == null)
 			for (Fruit f : fruitList)
 				f.draw(g);
@@ -315,7 +321,7 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 	{
 		return new Point(getPixelCoord(segmentCoords.getX()), getPixelCoord(segmentCoords.getY()));
 	}
-	
+
 	/**
 	 * Obtains a reference to the Client that is connected to this GameplayClient JPanel
 	 * @return a SnakeData representing the client
@@ -324,7 +330,7 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 	{
 		return thisClient;
 	}
-	
+
 	/**
 	 * Obtains a list of the Clients in this game that are not equal to the Client that this GameplayClient
 	 * is connected to
@@ -336,7 +342,7 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 		clone.remove(getClient());
 		return clone;
 	}
-	
+
 	/**
 	 * Obtains a list of all of the clients that this client is connected to, including itself
 	 * @return a SnakeList containing these clients
@@ -405,7 +411,7 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 				!text.contains(Vector.REGEX) &&
 				!text.equals("");
 	}
-	
+
 	public static Point keepInBounds(Point head)
 	{
 		head = head.clone();
@@ -421,7 +427,7 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 	}
 
 	// Frame
-
+	
 	public class SnakeGameGUI extends JFrame
 	{	
 		private static final long serialVersionUID = -1155890718213904522L;

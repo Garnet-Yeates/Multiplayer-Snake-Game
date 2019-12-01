@@ -1,6 +1,8 @@
 package edu.wit.yeatesg.mps.network.packets;
 
 import edu.wit.yeatesg.mps.buffs.Fruit;
+import edu.wit.yeatesg.mps.buffs.FruitType;
+import edu.wit.yeatesg.mps.otherdatatypes.Point;
 
 /**
  * Informs each client that a Fruit has spawned on the server so that the client can update
