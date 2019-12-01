@@ -62,27 +62,22 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 
 	public static final int MAX_NAME_LENGTH = 17;
 
-	public GameplayClient(NetworkClient internal, SnakeData thisClient, SnakeList allClients)
+	private NetworkClient networkClient;
+	
+	public GameplayClient(NetworkClient networkClient, SnakeData thisClient, SnakeList allClients)
 	{
 		this.thisClient = thisClient;
 		this.allClients = allClients;
-		new SnakeGameGUI();
-		internal.setListener(this);
+		// new snake game frame
+		this.networkClient = networkClient;
+		networkClient.setListener(this);
+		new SnakeGameFrame();
 	}
-
-	private DataOutputStream out;
-
-	@Override
-	public void setOutputStream(DataOutputStream out)
-	{
-		this.out = out;
-	}
-
+	
 	@Override
 	public void onReceive(String data)
 	{
 		Packet packetReceiving = Packet.parsePacket(data);
-				System.out.println(thisClient.getClientName() + " received -> " + packetReceiving);
 
 		switch (packetReceiving.getClass().getSimpleName())
 		{
@@ -359,8 +354,7 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 		{
 			Direction entered = Direction.fromKeyCode(e.getKeyCode());
 			DirectionChangePacket pack = new DirectionChangePacket(thisClient.getClientName(), entered);
-			pack.setDataStream(out);
-			pack.send();
+			networkClient.send(pack);
 		}
 	}
 
@@ -374,8 +368,7 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 	public void windowClosing(WindowEvent e)
 	{
 		MessagePacket exitPack = new MessagePacket(thisClient.getClientName(), "I EXIT");
-		exitPack.setDataStream(out);
-		exitPack.send();
+		networkClient.send(exitPack);
 	}
 
 	@Override
@@ -428,11 +421,11 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 
 	// Frame
 	
-	public class SnakeGameGUI extends JFrame
+	public class SnakeGameFrame extends JFrame
 	{	
 		private static final long serialVersionUID = -1155890718213904522L;
 
-		public SnakeGameGUI()
+		public SnakeGameFrame()
 		{
 			setTitle(thisClient.getClientName());
 			setContentPane(GameplayClient.this);

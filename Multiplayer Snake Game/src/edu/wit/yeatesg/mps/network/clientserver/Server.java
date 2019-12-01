@@ -11,6 +11,7 @@ import java.util.Random;
 import javax.swing.Timer;
 
 import edu.wit.yeatesg.mps.buffs.Fruit;
+import edu.wit.yeatesg.mps.network.packets.AsymmetricEncryptionTool;
 import edu.wit.yeatesg.mps.network.packets.DirectionChangePacket;
 import edu.wit.yeatesg.mps.network.packets.FruitPickupPacket;
 import edu.wit.yeatesg.mps.network.packets.FruitSpawnPacket;
@@ -30,12 +31,14 @@ import edu.wit.yeatesg.mps.otherdatatypes.SnakeList;
 public class Server implements Runnable 
 {	
 	private ServerSocket ss;
+	private AsymmetricEncryptionTool serverDecrypter;
 	private int port;
 	private boolean open;
 	
 	public Server(int port) 
 	{
 		this.port = port;
+		serverDecrypter = new AsymmetricEncryptionTool(1024);
 	}
 
 	/**
@@ -83,8 +86,10 @@ public class Server implements Runnable
 						{
 							while (open)
 							{
-								String data = in.readUTF();
-								onReceive(data);	
+								byte[] bytes = new byte[in.readInt()];
+								in.read(bytes);
+								String received = serverDecrypter.isConnectionEstablished() ? serverDecrypter.decrypt(bytes) : new String(bytes);
+								onReceive(received);
 							}
 						} 
 						else
@@ -119,10 +124,14 @@ public class Server implements Runnable
 	 * @return true if this client connected successfully
 	 * @throws IOException if in.readUTF() throws an exception
 	 */
-	public boolean onAttemptConnect(Socket s, DataInputStream in, DataOutputStream out) throws IOException
+	public synchronized boolean onAttemptConnect(Socket s, DataInputStream in, DataOutputStream out) throws IOException
 	{
-		String rawUTF = in.readUTF();
+		// Read request packet
+		byte[] bytes = new byte[in.readInt()]; in.read(bytes);
+		String rawUTF = new String(bytes);
 		SnakeUpdatePacket clientRequestPacket = (SnakeUpdatePacket) Packet.parsePacket(rawUTF);
+		
+		// Process request packet
 		SnakeData newClient = clientRequestPacket.getClientData();
 		String clientName = newClient.getClientName();
 		System.out.println("Attempt Connect From -> " + clientName + " " + s.getInetAddress());
@@ -130,10 +139,23 @@ public class Server implements Runnable
 		newClient.setOutputStream(out);
 		newClient.setDirectionBuffer(new ArrayList<>());
 
+		// Determine what the response will be
 		MessagePacket responsePacket = new MessagePacket("Server", "CONNECTION ACCEPT");
 		if (!isDuplicateClient(clientName) && !isServerFull() && !gameStarted)
 		{
+			// Send "CONNECTION ACCEPT" response
 			send(responsePacket, newClient);
+			
+			// After client gets CONNECTION ACCEPT it sends its encryption key, so process key below
+			byte[] clientKey = new byte[in.readInt()]; in.read(clientKey);
+			AsymmetricEncryptionTool clientEncrypter = new AsymmetricEncryptionTool(1024);
+			clientEncrypter.setEncryptionKey(clientKey);
+			newClient.setEncrypter(clientEncrypter);
+			
+			// After receiving client encryption key, send server encryption key to client and establish connection
+			serverDecrypter.sendSharableKey(out);
+			serverDecrypter.setConnectionEstablished(true);
+			clientEncrypter.setConnectionEstablished(true);
 			
 //			Client loop will start here (NetworkClient.startAutoReceiving() is called)
 //			by this time, the client should be linked to a LobbyGUI so the lobby GUI is listening
@@ -208,7 +230,7 @@ public class Server implements Runnable
 	public void send(Packet p, SnakeData to)
 	{
 		p.setDataStream(to.getOutputStream());
-		p.send();
+		p.send(to.getEncrypter());
 	}
 
 	public void sendToAll(Packet p)

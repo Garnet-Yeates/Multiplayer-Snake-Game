@@ -7,6 +7,7 @@ import java.net.UnknownHostException;
 
 import javax.management.RuntimeErrorException;
 
+import edu.wit.yeatesg.mps.network.packets.AsymmetricEncryptionTool;
 import edu.wit.yeatesg.mps.network.packets.MessagePacket;
 import edu.wit.yeatesg.mps.network.packets.Packet;
 import edu.wit.yeatesg.mps.network.packets.SnakeUpdatePacket;
@@ -21,9 +22,11 @@ public class NetworkClient implements Runnable
 	private DataInputStream in;
 	private DataOutputStream out;
 	private Socket cs;
+	private AsymmetricEncryptionTool encrypter;
 
 	public NetworkClient(ClientListener listener, String name)
 	{
+		encrypter = new AsymmetricEncryptionTool(1024);
 		this.name = name;
 		this.listener = listener;
 	}
@@ -43,9 +46,12 @@ public class NetworkClient implements Runnable
 
 			SnakeUpdatePacket request = new SnakeUpdatePacket(thisClientsData);
 			request.setDataStream(out);
-			request.send();
+			request.send(encrypter);
+			System.out.println("sent req");
 			
-			data = in.readUTF();
+			byte[] bytes = new byte[in.readInt()];
+			in.read(bytes);
+			data = new String(bytes);
 		}
 		catch (IOException e)
 		{
@@ -58,6 +64,19 @@ public class NetworkClient implements Runnable
 		switch (resp.getMessage())
 		{
 		case "CONNECTION ACCEPT":
+			
+			encrypter.sendSharableKey(out);
+			
+			byte[] serverKey = null;
+			try
+			{
+				serverKey = new byte[in.readInt()];
+				in.read(serverKey);
+			}
+			catch (Exception e) { System.out.println("Server closed during connection accept with NetworkClient"); return false; }
+			encrypter.setEncryptionKey(serverKey);
+			encrypter.setConnectionEstablished(true);
+			
 			new LobbyClient(name, this, serverPort);
 			startAutoReceiving();
 			return true;
@@ -80,7 +99,6 @@ public class NetworkClient implements Runnable
 	public void setListener(ClientListener newListener)
 	{
 		listener = newListener;
-		listener.setOutputStream(out);
 	}
 
 	@Override
@@ -90,8 +108,11 @@ public class NetworkClient implements Runnable
 		{
 			try
 			{
-				String data = in.readUTF();
-				listener.onReceive(data);
+				byte[] bytes = new byte[in.readInt()]; in.read(bytes);
+				String received = encrypter != null && encrypter.isConnectionEstablished() ? encrypter.decrypt(bytes) : new String(bytes);
+				System.out.println("\nEncrypted Data:\n " + new String(bytes));
+				System.out.println("Decrypted Data:\n" + received + "\n");
+				listener.onReceive(received);
 			}
 			catch (IOException e)
 			{
@@ -104,6 +125,15 @@ public class NetworkClient implements Runnable
 	{
 		this.name = name;		
 	}
+	
+	public void setEncryptionKey(byte[] keyBytes)
+	{
+		encrypter.setEncryptionKey(keyBytes);
+	}
 
-
+	public void send(Packet p)
+	{
+		p.setDataStream(out);
+		p.send(encrypter);
+	}
 }

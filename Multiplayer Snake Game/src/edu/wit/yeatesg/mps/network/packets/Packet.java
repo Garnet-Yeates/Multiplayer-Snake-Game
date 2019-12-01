@@ -83,11 +83,13 @@ public abstract class Packet
 		return pack;
 	}
 
-	public void send()
+	public void send(AsymmetricEncryptionTool encryptionTool)
 	{
 		try 
 		{
-			outputStream.writeUTF(getUTF());
+			byte[] stringBytes = encryptionTool != null && encryptionTool.isConnectionEstablished() ? encryptionTool.encrypt(getUTF()) : getUTF().getBytes();
+			outputStream.writeInt(stringBytes.length);
+			outputStream.write(stringBytes);
 		}
 		catch (IOException e) { }
 	}

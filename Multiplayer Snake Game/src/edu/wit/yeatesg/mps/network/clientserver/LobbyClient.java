@@ -32,9 +32,7 @@ public class LobbyClient extends JPanel implements ClientListener, WindowListene
 	private SnakeData thisClient;
 	private String thisClientName;
 	
-	private NetworkClient internalClient;
-
-	private DataOutputStream outputStream;
+	private NetworkClient networkClient;
 	
 	private LobbyGUI frame;
 	
@@ -42,7 +40,7 @@ public class LobbyClient extends JPanel implements ClientListener, WindowListene
 	{
 		frame = new LobbyGUI();
 		internal.setListener(this);
-		this.internalClient = internal;
+		this.networkClient = internal;
 		thisClientName = clientName;	
 		allClients = new SnakeList();
 		ConnectClient.setLookAndFeel();
@@ -99,27 +97,19 @@ public class LobbyClient extends JPanel implements ClientListener, WindowListene
 	private void onGameStartRequest()
 	{
 		MessagePacket startGamePacket = new MessagePacket(thisClientName, "GAME START");
-		startGamePacket.setDataStream(outputStream);
-		startGamePacket.send();
+		networkClient.send(startGamePacket);
 	}
 	
 	private void onGameStart()
 	{
-		new GameplayClient(internalClient, thisClient, allClients);
+		new GameplayClient(networkClient, thisClient, allClients);
 		frame.dispose();
 	}
 
 	private void onDisconnectPress()
 	{
 		MessagePacket exitPacket = new MessagePacket(thisClientName, "I EXIT");
-		exitPacket.setDataStream(outputStream);
-		exitPacket.send();
-	}
-
-	@Override
-	public void setOutputStream(DataOutputStream out)
-	{
-		this.outputStream = out;
+		networkClient.send(exitPacket);
 	}
 	
 	@Override
@@ -305,8 +295,7 @@ public class LobbyClient extends JPanel implements ClientListener, WindowListene
 				clonedData.setDirection(getStartDirection());
 				clonedData.setPointList(getPointList());
 				SnakeUpdatePacket pack = new SnakeUpdatePacket(clonedData);
-				pack.setDataStream(outputStream);
-				pack.send();
+				networkClient.send(pack);
 			}
 			repaint();
 		}
