@@ -75,7 +75,7 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 	}
 	
 	@Override
-	public void onReceive(String data)
+	public void onAutoReceive(String data)
 	{
 		Packet packetReceiving = Packet.parsePacket(data);
 

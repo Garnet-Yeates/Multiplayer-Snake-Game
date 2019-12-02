@@ -11,7 +11,6 @@ import java.util.Random;
 import javax.swing.Timer;
 
 import edu.wit.yeatesg.mps.buffs.Fruit;
-import edu.wit.yeatesg.mps.network.packets.AsymmetricEncryptionTool;
 import edu.wit.yeatesg.mps.network.packets.DirectionChangePacket;
 import edu.wit.yeatesg.mps.network.packets.FruitPickupPacket;
 import edu.wit.yeatesg.mps.network.packets.FruitSpawnPacket;
@@ -31,14 +30,14 @@ import edu.wit.yeatesg.mps.otherdatatypes.SnakeList;
 public class Server implements Runnable 
 {	
 	private ServerSocket ss;
-	private AsymmetricEncryptionTool serverDecrypter;
+	private SocketSecurityTool serverDecrypter;
 	private int port;
 	private boolean open;
 	
 	public Server(int port) 
 	{
 		this.port = port;
-		serverDecrypter = new AsymmetricEncryptionTool(1024);
+		serverDecrypter = new SocketSecurityTool(1024);
 	}
 
 	/**
@@ -88,8 +87,8 @@ public class Server implements Runnable
 							{
 								byte[] bytes = new byte[in.readInt()];
 								in.read(bytes);
-								String received = serverDecrypter.isConnectionEstablished() ? serverDecrypter.decrypt(bytes) : new String(bytes);
-								onReceive(received);
+								String received = serverDecrypter.decryptStringBytes(bytes);
+								onReceiveEncrypted(received);
 							}
 						} 
 						else
@@ -130,6 +129,7 @@ public class Server implements Runnable
 		byte[] bytes = new byte[in.readInt()]; in.read(bytes);
 		String rawUTF = new String(bytes);
 		SnakeUpdatePacket clientRequestPacket = (SnakeUpdatePacket) Packet.parsePacket(rawUTF);
+		System.out.println("Server Received -> " + clientRequestPacket);
 		
 		// Process request packet
 		SnakeData newClient = clientRequestPacket.getClientData();
@@ -143,19 +143,19 @@ public class Server implements Runnable
 		MessagePacket responsePacket = new MessagePacket("Server", "CONNECTION ACCEPT");
 		if (!isDuplicateClient(clientName) && !isServerFull() && !gameStarted)
 		{
+			System.out.println("Server -> CONNECTION ACCEPT" );
 			// Send "CONNECTION ACCEPT" response
-			send(responsePacket, newClient);
+			send(responsePacket, newClient, false);
 			
 			// After client gets CONNECTION ACCEPT it sends its encryption key, so process key below
 			byte[] clientKey = new byte[in.readInt()]; in.read(clientKey);
-			AsymmetricEncryptionTool clientEncrypter = new AsymmetricEncryptionTool(1024);
-			clientEncrypter.setEncryptionKey(clientKey);
+			// Assign a separate AsymmetricEncryptionTool to this client to send encrypted packets to them
+			SocketSecurityTool clientEncrypter = new SocketSecurityTool(1024);
 			newClient.setEncrypter(clientEncrypter);
+			clientEncrypter.setPartnerKey(clientKey);
 			
-			// After receiving client encryption key, send server encryption key to client and establish connection
-			serverDecrypter.sendSharableKey(out);
-			serverDecrypter.setConnectionEstablished(true);
-			clientEncrypter.setConnectionEstablished(true);
+			// After receiving client encryption key, send server encryption key to client to fully establish asym connection
+			serverDecrypter.sendPublicKey(out);
 			
 //			Client loop will start here (NetworkClient.startAutoReceiving() is called)
 //			by this time, the client should be linked to a LobbyGUI so the lobby GUI is listening
@@ -229,8 +229,14 @@ public class Server implements Runnable
 	 */
 	public void send(Packet p, SnakeData to)
 	{
+		send(p, to, true);
+
+	}
+	
+	public void send(Packet p, SnakeData to, boolean encrypting)
+	{
 		p.setDataStream(to.getOutputStream());
-		p.send(to.getEncrypter());
+		p.send(encrypting ? to.getEncrypter() : null);
 	}
 
 	public void sendToAll(Packet p)
@@ -245,11 +251,11 @@ public class Server implements Runnable
 	 * the UTF data is passed to this onReceive() method. This method is synchronized because we do not want
 	 * the server to receive two packets of data concurrently, because that can result in a concurrent modification
 	 * exception in the {@link #connectedClients} list, among other unpredictable things. The {@link #onTick()} method
-	 * is also synchronized for the same reason ({@link #onTick()} and {@link #onReceive(String)} are the only two
+	 * is also synchronized for the same reason ({@link #onTick()} and {@link #onReceiveEncrypted(String)} are the only two
 	 * methods in the server that interact with other threads, so they are the only two that should be synchronized)
 	 * @param data the raw UTF data received from the client socket on another thread
 	 */
-	public synchronized void onReceive(String data) 
+	public synchronized void onReceiveEncrypted(String data) 
 	{
 		Packet packetReceiving = Packet.parsePacket(data);
 		switch (packetReceiving.getClass().getSimpleName())
@@ -374,7 +380,7 @@ public class Server implements Runnable
 	
 	/**
 	 * This method is called whenever the Server's tick timer is called. This method will be called every
-	 * {@link #tickRate} milliseconds. Since the tick timer is on a different thread, and {@link #onReceive(String)}
+	 * {@link #tickRate} milliseconds. Since the tick timer is on a different thread, and {@link #onReceiveEncrypted(String)}
 	 * is called in a different thread, both of these methods are synchronized so that there won't be any
 	 * ConcurrentModificationException thrown as a result of 2 or more threads looping through {@link #connectedClients}
 	 */

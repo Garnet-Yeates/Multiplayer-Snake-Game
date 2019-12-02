@@ -15,7 +15,7 @@ import edu.wit.yeatesg.mps.buffs.BuffType;
 import edu.wit.yeatesg.mps.buffs.Fruit;
 import edu.wit.yeatesg.mps.buffs.HungryBuffDrawScript;
 import edu.wit.yeatesg.mps.network.clientserver.GameplayClient;
-import edu.wit.yeatesg.mps.network.packets.AsymmetricEncryptionTool;
+import edu.wit.yeatesg.mps.network.clientserver.SocketSecurityTool;
 import edu.wit.yeatesg.mps.network.packets.SnakeUpdatePacket;
 
 public class SnakeData
@@ -216,7 +216,7 @@ public class SnakeData
 	// Server side fields and methods, not updated when updateBasedOn(SnakeUpdatePacket pack) is called
 	// on the client side of this SnakeData, all of these fields will be null
 
-	private AsymmetricEncryptionTool $encrypter;
+	private SocketSecurityTool $encrypter;
 	private DataOutputStream $outputStream;
 	private Socket $socket;
 	private ArrayList<Direction> $directionBuffer;
@@ -307,12 +307,12 @@ public class SnakeData
 		return $directionBuffer;
 	}
 	
-	public AsymmetricEncryptionTool getEncrypter()
+	public SocketSecurityTool getEncrypter()
 	{
 		return $encrypter;
 	}
 	
-	public void setEncrypter(AsymmetricEncryptionTool encrypter)
+	public void setEncrypter(SocketSecurityTool encrypter)
 	{
 		$encrypter = encrypter;
 	}

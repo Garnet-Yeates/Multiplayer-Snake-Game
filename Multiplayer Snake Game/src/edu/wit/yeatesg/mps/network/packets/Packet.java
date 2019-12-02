@@ -4,7 +4,10 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Collection;
 
+import edu.wit.yeatesg.mps.network.clientserver.SocketSecurityTool;
 import edu.wit.yeatesg.mps.otherdatatypes.ReflectionTools;
+
+import static edu.wit.yeatesg.mps.network.clientserver.SocketSecurityTool.*;
 
 public abstract class Packet
 {
@@ -83,11 +86,11 @@ public abstract class Packet
 		return pack;
 	}
 
-	public void send(AsymmetricEncryptionTool encryptionTool)
+	public void send(SocketSecurityTool encryptionTool)
 	{
 		try 
 		{
-			byte[] stringBytes = encryptionTool != null && encryptionTool.isConnectionEstablished() ? encryptionTool.encrypt(getUTF()) : getUTF().getBytes();
+			byte[] stringBytes = encryptionTool != null ? encryptionTool.encryptStringBytes(getUTF(), PARTNER) : getUTF().getBytes();
 			outputStream.writeInt(stringBytes.length);
 			outputStream.write(stringBytes);
 		}

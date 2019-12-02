@@ -39,8 +39,9 @@ public class LobbyClient extends JPanel implements ClientListener, WindowListene
 	public LobbyClient(String clientName, NetworkClient internal, int serverPort)
 	{
 		frame = new LobbyGUI();
-		internal.setListener(this);
 		this.networkClient = internal;
+		networkClient.setListener(this);
+		networkClient.startAutoReceiving();
 		thisClientName = clientName;	
 		allClients = new SnakeList();
 		ConnectClient.setLookAndFeel();
@@ -50,7 +51,7 @@ public class LobbyClient extends JPanel implements ClientListener, WindowListene
 	{
 		if (whoJoinedOnLastUpdate.isHost() && whoJoinedOnLastUpdate.getClientName().equals(thisClientName))
 			button_startGame.setEnabled(true);			
-		PlayerDisplayPanel emptyPanel = getEmptyPlayerPanel();
+		PlayerDisplayPanel emptyPanel = findEmptyPlayerPanel();
 		emptyPanel.connectClient(whoJoinedOnLastUpdate);
 	}
 
@@ -62,7 +63,7 @@ public class LobbyClient extends JPanel implements ClientListener, WindowListene
 	}
 
 	@Override
-	public void onReceive(String data)
+	public void onAutoReceive(String data)
 	{
 		Packet packetReceiving = Packet.parsePacket(data);
 		System.out.println(thisClientName + " Lobby Receive -> " + packetReceiving);
@@ -332,7 +333,7 @@ public class LobbyClient extends JPanel implements ClientListener, WindowListene
 		return null;
 	}
 
-	private PlayerDisplayPanel getEmptyPlayerPanel()
+	private PlayerDisplayPanel findEmptyPlayerPanel()
 	{
 		for (PlayerDisplayPanel playerPanel : playerPanelList)
 			if (!playerPanel.hasConnectedClient())
