@@ -38,30 +38,15 @@ import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
 import edu.wit.yeatesg.mps.otherdatatypes.SnakeList;
 import edu.wit.yeatesg.mps.otherdatatypes.Vector;
 
+import static edu.wit.yeatesg.mps.network.clientserver.MultiplayerSnakeGame.*;
+
 public class GameplayGUI extends JPanel implements ClientListener, KeyListener, WindowListener
 {	
 	private static final long serialVersionUID = 5573784413946297734L;
 
-	public static final int SSL = 3;
-
-	public static final int JAR_OFFSET_X = 9;
-	public static final int JAR_OFFSET_Y = 10;
-
-	public static final int NUM_HORIZONTAL_UNITS = 95; // 95
-	public static final int NUM_HORIZONTAL_SPACES = NUM_HORIZONTAL_UNITS + 1;
-	public static final int NUM_VERTICAL_UNITS = 50; // 50
-	public static final int NUM_VERTICAL_SPACES = NUM_VERTICAL_UNITS + 1;
-	public static final int UNIT_SIZE = 18; // 18
-	public static final int SPACE_SIZE = 1; 
-	public static final int MAX_AREA = GameplayGUI.NUM_HORIZONTAL_UNITS * GameplayGUI.NUM_VERTICAL_UNITS;
-
-	public static final int MAX_OUTLINE_THICKNESS = UNIT_SIZE / 2;
-
-	public static final int WIDTH = NUM_HORIZONTAL_UNITS * UNIT_SIZE + NUM_HORIZONTAL_SPACES * SPACE_SIZE + JAR_OFFSET_X;
-	public static final int HEIGHT = NUM_VERTICAL_UNITS * UNIT_SIZE + NUM_VERTICAL_SPACES * SPACE_SIZE + JAR_OFFSET_Y;
-
-	public static final int MAX_NAME_LENGTH = 17;
-
+	public static final int WIDTH = MultiplayerSnakeGame.WIDTH;
+	public static final int HEIGHT = MultiplayerSnakeGame.HEIGHT;
+	
 	private NetworkClient networkClient;
 	
 	public GameplayGUI(NetworkClient networkClient, SnakeData thisClient, SnakeList allClients)
@@ -74,8 +59,13 @@ public class GameplayGUI extends JPanel implements ClientListener, KeyListener, 
 		new GameplayFrame();
 	}
 	
+	private synchronized void send(Packet p)
+	{
+		networkClient.send(p);
+	}	
+	
 	@Override
-	public void onAutoReceive(String data)
+	public synchronized void onAutoReceive(String data)
 	{
 		Packet packetReceiving = Packet.parsePacket(data);
 
@@ -189,7 +179,14 @@ public class GameplayGUI extends JPanel implements ClientListener, KeyListener, 
 		new DeadSnakeDrawScript(this, leaver);
 		Timer removeTimer = new Timer(DeadSnakeDrawScript.DURATION, null);
 		removeTimer.setRepeats(false);
-		removeTimer.addActionListener((e) -> allClients.remove(leaver));
+		removeTimer.addActionListener((e) ->
+		{
+			synchronized (GameplayGUI.this)
+			{
+				allClients.remove(leaver);
+			}
+		});
+
 		removeTimer.start();
 	}
 
@@ -281,7 +278,7 @@ public class GameplayGUI extends JPanel implements ClientListener, KeyListener, 
 		}
 	}
 
-	// Synchronized because multiple threads can call paintComponent (from draw scripts). Probs not necessary
+	// Synchronized because multiple threads can call paintComponent (draw script timer threads and this thread). Probs not necessary
 	// to synchronize because the threads that call paintComponent will never make any
 	// modifications to the allClients list, which is the only thread-unsafe thing we are
 	// dealing with
@@ -354,7 +351,7 @@ public class GameplayGUI extends JPanel implements ClientListener, KeyListener, 
 		{
 			Direction entered = Direction.fromKeyCode(e.getKeyCode());
 			DirectionChangePacket pack = new DirectionChangePacket(thisClient.getClientName(), entered);
-			networkClient.send(pack);
+			send(pack);
 		}
 	}
 
@@ -368,9 +365,9 @@ public class GameplayGUI extends JPanel implements ClientListener, KeyListener, 
 	public void windowClosing(WindowEvent e)
 	{
 		MessagePacket exitPack = new MessagePacket(thisClient.getClientName(), "I EXIT");
-		networkClient.send(exitPack);
+		send(exitPack);
 	}
-
+	
 	@Override
 	public void windowActivated(WindowEvent arg0) { }
 
@@ -408,14 +405,14 @@ public class GameplayGUI extends JPanel implements ClientListener, KeyListener, 
 	public static Point keepInBounds(Point head)
 	{
 		head = head.clone();
-		if (head.getX() > GameplayGUI.NUM_HORIZONTAL_UNITS - 1)
+		if (head.getX() > NUM_HORIZONTAL_UNITS - 1)
 			head.setX(0);
 		else if (head.getX() < 0)
-			head.setX(GameplayGUI.NUM_HORIZONTAL_UNITS - 1);
-		else if (head.getY() > GameplayGUI.NUM_VERTICAL_UNITS - 1)
+			head.setX(NUM_HORIZONTAL_UNITS - 1);
+		else if (head.getY() > NUM_VERTICAL_UNITS - 1)
 			head.setY(0);
 		else if (head.getY() < 0)
-			head.setY(GameplayGUI.NUM_VERTICAL_UNITS - 1);
+			head.setY(NUM_VERTICAL_UNITS - 1);
 		return head;
 	}
 
@@ -430,7 +427,7 @@ public class GameplayGUI extends JPanel implements ClientListener, KeyListener, 
 			setTitle(thisClient.getClientName());
 			setContentPane(GameplayGUI.this);
 			ConnectGUI.setLookAndFeel();
-			setBounds(0, 0, GameplayGUI.WIDTH + 6, GameplayGUI.HEIGHT + 29);
+			setBounds(0, 0, MultiplayerSnakeGame.WIDTH + 6, MultiplayerSnakeGame.HEIGHT + 29);
 			setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 			setResizable(false);
 			addWindowListener(GameplayGUI.this);

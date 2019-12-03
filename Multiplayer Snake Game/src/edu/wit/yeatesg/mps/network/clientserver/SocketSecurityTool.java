@@ -105,12 +105,17 @@ public class SocketSecurityTool
 
 	/**
 	 * Encrypts the given array of bytes using either {@link #myEncryptionKey} or {@link #partnerEncryptionKey}.
+	 * <br><br><i>This method is synchronized along with {@link #decryptBytes(byte[])} on each instance. This prevents the
+	 * rare case where, from different threads, both {@link #encryptBytes(byte[], Key)} and {@link #decryptBytes(byte[])} are
+	 * called at the same time. If this were to happen, then there is a possibility that the cipher will be in encryption mode
+	 * while trying to decrypt, or vice versa, which can cause numerous errors.
+	 * running simultaneously.</i>
 	 * @param bytes the byte[] that is being encrypted.
 	 * @param whichKey determines whether {@link #myEncryptionKey} or {@link #partnerEncryptionKey} is used.
 	 * @return a byte[] representing the encrypted version of the given array using the selected key.
 	 * @throws EncryptionFailedException if the key is invalid or if some other relevant exception is thrown.
 	 */
-	public byte[] encryptBytes(byte[] bytes, Key whichKey) throws EncryptionFailedException
+	public synchronized byte[] encryptBytes(byte[] bytes, Key whichKey) throws EncryptionFailedException
 	{	
 		try
 		{
@@ -119,6 +124,7 @@ public class SocketSecurityTool
 		}
 		catch (InvalidKeyException | IllegalBlockSizeException | BadPaddingException e)
 		{
+			System.out.println("Failed to encrypt: " + bytes + " (as string: " + new String(bytes) + ")");
 			throw new EncryptionFailedException(e);
 		}
 	}
@@ -140,13 +146,19 @@ public class SocketSecurityTool
 	private PrivateKey secretDecryptionKey;
 
 	/**
-	 * Decrypts the given byte array using the PrivateKey of this SocketSecurityTool, represented by
-	 * {@link #secretDecryptionKey}. This key was generated upon initialization by the {@link #keyGen}
+	 * Decrypts the given byte array using the PrivateKey of this SocketSecurityTool, represented by {@link #secretDecryptionKey}.
+	 * This key was generated upon initialization by the {@link #keyGen}.
+	 * <br><br><i>This method is synchronized along with {@link #encryptBytes(byte[], Key)} on each instance. This prevents the
+	 * rare case where, from different threads, both {@link #encryptBytes(byte[], Key)} and {@link #decryptBytes(byte[])} are
+	 * called at the same time. If this were to happen, then there is a possibility that the cipher will be in encryption mode
+	 * while trying to decrypt, or vice versa, which can cause numerous errors.
+	 * running simultaneously.</i>
 	 * @param encryptedBytes the byte[] that is being decrypted
 	 * @return a byte[] representing the decrypted version of the input byte[] using {@link #secretDecryptionKey} 
-	 * @throws RuntimeException
+	 * @throws RuntimeException if the decryption failed
+
 	 */
-	public byte[] decryptBytes(byte[] encryptedBytes)
+	public synchronized byte[] decryptBytes(byte[] encryptedBytes)
 	{
 		try
 		{

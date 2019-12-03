@@ -1,6 +1,5 @@
 package edu.wit.yeatesg.mps.otherdatatypes;
 
-
 import java.awt.Graphics;
 import java.io.DataOutputStream;
 import java.lang.reflect.Field;
@@ -15,14 +14,17 @@ import edu.wit.yeatesg.mps.buffs.BuffType;
 import edu.wit.yeatesg.mps.buffs.Fruit;
 import edu.wit.yeatesg.mps.buffs.HungryBuffDrawScript;
 import edu.wit.yeatesg.mps.network.clientserver.GameplayGUI;
+import edu.wit.yeatesg.mps.network.clientserver.Server.PlayerSlot;
 import edu.wit.yeatesg.mps.network.clientserver.SocketSecurityTool;
 import edu.wit.yeatesg.mps.network.packets.SnakeUpdatePacket;
+
+import static edu.wit.yeatesg.mps.network.clientserver.MultiplayerSnakeGame.*;
 
 public class SnakeData
 {
 	public static final String REGEX = ":";
 
-	public SnakeData(String name, Color color, Direction direction, PointList pointList, boolean isHost, boolean isAlive, boolean addingSegment)
+	public SnakeData(String name, Color color, Direction direction, PointList pointList, boolean isHost, boolean isAlive, boolean addingSegment, int playerNum)
 	{
 		this.name = name;
 		this.color = color;
@@ -31,28 +33,31 @@ public class SnakeData
 		this.isHost = isHost;
 		this.isAlive = true;
 		this.isAddingSegment = addingSegment;
+		this.playerNum = playerNum;
 	}
 
 	public SnakeData(String... params)
 	{
-		this.name = params[0];
-		this.color = Color.fromString(params[1]);
-		this.direction = Direction.fromString(params[2]);
-		this.pointList = PointList.fromString(params[3]);
-		this.isHost = Boolean.parseBoolean(params[4]);
-		this.isAlive = Boolean.parseBoolean(params[5]);
-		this.isAddingSegment = Boolean.parseBoolean(params[6]);
+		name = params[0];
+		color = Color.fromString(params[1]);
+		direction = Direction.fromString(params[2]);
+		pointList = PointList.fromString(params[3]);
+		isHost = Boolean.parseBoolean(params[4]);
+		isAlive = Boolean.parseBoolean(params[5]);
+		isAddingSegment = Boolean.parseBoolean(params[6]);
+		playerNum = Integer.parseInt(params[7]);
 	}
 
 	public SnakeData()
 	{
-		this.name = "null";
-		this.color = Color.BLACK;
-		this.pointList = new PointList();
-		this.direction = Direction.DOWN;
-		this.isHost = false;
-		this.isAlive = true;
-		this.isAddingSegment = false;
+		name = "null";
+		color = Color.BLACK;
+		pointList = new PointList();
+		direction = Direction.DOWN;
+		isHost = false;
+		isAlive = true;
+		isAddingSegment = false;
+		playerNum = -1;
 	}
 
 	public SnakeData(String splittableString)
@@ -63,14 +68,14 @@ public class SnakeData
 
 	// Fields that are shared/updated/used between client/server
 
-
 	private String name;
 	private Color color;
 	private Direction direction;
 	private PointList pointList;
 	private boolean isHost;
 	private boolean isAlive;
-	private boolean isAddingSegment;	
+	private boolean isAddingSegment;
+	private int playerNum;
 
 	// Remember snakes keep getting updated after they die. might wanna do smthing abt that (maybe) (potentially)
 	public void updateBasedOn(SnakeUpdatePacket pack)
@@ -186,8 +191,17 @@ public class SnakeData
 	{
 		return pointList.size();
 	}
-	
-	
+
+	public int getPlayerNum()
+	{
+		return playerNum;
+	}
+
+	public void setPlayerNum(int playerNum)
+	{
+		this.playerNum = playerNum;
+	}
+
 	///
 
 	@Override
@@ -213,6 +227,20 @@ public class SnakeData
 		this.pointList = pointList;		
 	}
 
+	public void addToPointList(Point adding)
+	{
+		pointList.add(adding);
+	}
+
+	public int getOccurrenceOf(Point p)
+	{
+		int occurrences = 0;
+		for (Point p2 : pointList)
+			if (p.equals(p2))
+				occurrences++;
+		return occurrences;
+	}
+
 	// Server side fields and methods, not updated when updateBasedOn(SnakeUpdatePacket pack) is called
 	// on the client side of this SnakeData, all of these fields will be null
 
@@ -223,9 +251,10 @@ public class SnakeData
 	private boolean $buffTranslucentActive;
 	private boolean $buffHungryActive;
 	private int $foodInBelly;
+	private PlayerSlot $playerSlot;
 
 	private Timer $removeBuffTimer;
-	
+
 	public void grantBuff(BuffType buff)
 	{	
 		$removeBuffTimer = new Timer(buff.getDuration(), null);
@@ -306,12 +335,12 @@ public class SnakeData
 	{
 		return $directionBuffer;
 	}
-	
+
 	public SocketSecurityTool getEncrypter()
 	{
 		return $encrypter;
 	}
-	
+
 	public void setEncrypter(SocketSecurityTool encrypter)
 	{
 		$encrypter = encrypter;
@@ -342,18 +371,20 @@ public class SnakeData
 		$socket = socket;
 	}
 
-	public void addToPointList(Point adding)
+	public void onSlotBind(PlayerSlot playerSlot)
 	{
-		pointList.add(adding);
+		$playerSlot = playerSlot;
 	}
 
-	public int getOccurrenceOf(Point p)
+	public void onSlotUnbind()
 	{
-		int occurrences = 0;
-		for (Point p2 : pointList)
-			if (p.equals(p2))
-				occurrences++;
-		return occurrences;
+		$playerSlot = null;
+		setPlayerNum(-1);
+	}
+
+	public PlayerSlot getPlayerSlot()
+	{
+		return $playerSlot;
 	}
 
 	// Client side fields and methods, not updated when updateBasedOn(SnakeUpdatePacket pack) is called
@@ -393,12 +424,12 @@ public class SnakeData
 	{
 		return $currentDrawScript;
 	}
-	
+
 	public boolean hasTranslucentBuffDrawScript()
 	{
 		return $currentDrawScript instanceof TranslucentBuffDrawScript;
 	}
-	
+
 	public boolean hasHungryBuffDrawScript()
 	{
 		return $currentDrawScript instanceof HungryBuffDrawScript;
@@ -409,45 +440,44 @@ public class SnakeData
 		if ($currentDrawScript != null && $currentDrawScript.hasStarted())
 			$currentDrawScript.drawSnake(g);
 	}
-	
+
 	public void drawNormallyIfApplicable(Graphics g, GameplayGUI drawingOn)
 	{
 		if ($currentDrawScript == null && isAlive)
 			drawSnakeNormally(g, drawingOn);
 	}
-	
+
 	public void drawSnakeNormally(Graphics g, GameplayGUI drawingOn)
 	{
+		boolean drawingSelf = this.equals(drawingOn.getClient());
+		int drawSize = UNIT_SIZE;
+		int index = 0;
+		for (Point segmentLoc : pointList)
 		{
-			boolean drawingSelf = this.equals(drawingOn.getClient());
-			int drawSize = GameplayGUI.UNIT_SIZE;
-			int index = 0;
-			for (Point segmentLoc : pointList)
+			boolean drawingOnNotHungry = !drawingOn.getClient().hasHungryBuffDrawScript();
+			boolean drawingHead = index == 0;
+			boolean highlightableLocation = getLength() > Fruit.MIN_FRUIT_HUNGRY_LENGTH && index < getLength() - Fruit.MAX_BITE_OFF;
+			if (drawingSelf || drawingOnNotHungry || drawingHead || highlightableLocation)
 			{
-				if (drawingSelf
-						|| !drawingOn.getClient().hasHungryBuffDrawScript()
-						|| index == 0
-						|| (getLength() > Fruit.MIN_FRUIT_HUNGRY_LENGTH && index < getLength() - Fruit.MAX_BITE_OFF))
+				Point drawCoords = GameplayGUI.getPixelCoords(segmentLoc);
+				g.setColor(color);
+				if (getOccurrenceOf(segmentLoc) > 1)
 				{
-					Point drawCoords = GameplayGUI.getPixelCoords(segmentLoc);
-					g.setColor(color);
-					if (getOccurrenceOf(segmentLoc) > 1)
+					int outlineThickness = (int) (MAX_OUTLINE_THICKNESS*0.65);
+					int offset = 0;
+					for (int i = 0; i < outlineThickness; i++)
 					{
-						int outlineThickness = (int) (GameplayGUI.MAX_OUTLINE_THICKNESS*0.65);
-						int offset = 0;
-						for (int i = 0; i < outlineThickness; i++)
-						{
-							g.drawRect(drawCoords.getX() + offset, drawCoords.getY() + offset, drawSize - 2*offset - 1, drawSize - 2*offset - 1);
-							offset++;
-						}
-					}
-					else
-					{
-						g.fillRect(drawCoords.getX(), drawCoords.getY(), drawSize, drawSize);
+						g.drawRect(drawCoords.getX() + offset, drawCoords.getY() + offset, drawSize - 2*offset - 1, drawSize - 2*offset - 1);
+						offset++;
 					}
 				}
-				index++;
+				else
+				{
+					g.fillRect(drawCoords.getX(), drawCoords.getY(), drawSize, drawSize);
+				}
 			}
+			index++;
 		}
+
 	}
 }

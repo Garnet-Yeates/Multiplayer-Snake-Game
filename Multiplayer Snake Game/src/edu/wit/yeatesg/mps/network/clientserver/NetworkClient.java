@@ -215,8 +215,8 @@ public class NetworkClient
 				{
 					byte[] bytes = new byte[in.readInt()]; in.read(bytes);
 					String received = encryptedMode ? encrypter.decryptString(bytes) : new String(bytes);
-					System.out.println("\nEncrypted Data:\n " + new String(bytes));
-					System.out.println("Decrypted Data:\n" + received + "\n");
+			//		System.out.println("\nEncrypted Data:\n " + new String(bytes));
+		    //	    System.out.println("Decrypted Data:\n" + received + "\n");
 					listener.onAutoReceive(received);
 				}
 				catch (NullPointerException e)
@@ -300,7 +300,7 @@ public class NetworkClient
 		if (out == null)
 			throw new NotConnectedException();
 		p.setDataStream(out);
-		p.write(encrypter);
+		p.write(encryptedMode ? encrypter : null);
 	}
 }
 /**
@@ -408,7 +408,7 @@ class ListenerNotFoundException extends RuntimeException
 class SocketClosedException extends RuntimeException
 {
 	private static final long serialVersionUID = 6067006771379735990L;
-	
+
 	@Override
 	public String getMessage()
 	{

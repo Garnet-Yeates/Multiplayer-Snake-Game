@@ -17,6 +17,10 @@ import javax.swing.border.EmptyBorder;
 
 import edu.wit.yeatesg.mps.network.packets.Packet;
 
+import static edu.wit.yeatesg.mps.network.clientserver.MultiplayerSnakeGame.*;
+
+import static edu.wit.yeatesg.mps.network.clientserver.MultiplayerSnakeGame.*;
+
 public class ConnectGUI extends JPanel
 {
 	private static final long serialVersionUID = 1L;
@@ -118,7 +122,7 @@ public class ConnectGUI extends JPanel
 		{
 			setResizable(false);
 			setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-			setBounds(100, 100, 175 + GameplayGUI.JAR_OFFSET_X, 175 + GameplayGUI.JAR_OFFSET_Y);
+			setBounds(100, 100, 175 + JAR_OFFSET_X, 175 + JAR_OFFSET_Y);
 			ConnectGUI.this.setBorder(new EmptyBorder(5, 5, 5, 5));
 			setContentPane(ConnectGUI.this);
 			ConnectGUI.this.setLayout(null);
@@ -146,7 +150,7 @@ public class ConnectGUI extends JPanel
 				@Override
 				public void keyTyped(KeyEvent e)
 				{
-					if (field_name.getText().length() >= GameplayGUI.MAX_NAME_LENGTH)
+					if (field_name.getText().length() >= MAX_NAME_LENGTH)
 						e.consume();
 				}
 				

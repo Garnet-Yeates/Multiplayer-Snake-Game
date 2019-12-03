@@ -63,6 +63,8 @@ public class SnakeList extends ArrayList<SnakeData>
 		return s;
 	}
 	
+	private SnakeData joinedOnLastUpdate = null;
+	
 	public void updateBasedOn(SnakeUpdatePacket pack)
 	{
 		SnakeData updated = pack.getClientData();
@@ -71,9 +73,23 @@ public class SnakeList extends ArrayList<SnakeData>
 			for (SnakeData data : this)
 				if (data.getClientName().equals(updated.getClientName()))
 					data.updateBasedOn(pack);
+			joinedOnLastUpdate = null;
 		}
 		else
+		{
 			add(updated);
+			joinedOnLastUpdate = updated;
+		}
+	}
+	
+	public boolean didSomeoneJoinOnLastUpdate()
+	{
+		return joinedOnLastUpdate != null;
+	}
+	
+	public SnakeData getWhoJoinedOnLastUpdate()
+	{
+		return joinedOnLastUpdate;
 	}
 	
 	public ArrayList<SnakeData> getAliveSnakes()

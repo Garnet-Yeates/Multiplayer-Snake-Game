@@ -15,7 +15,7 @@ public class SnakeBiteDrawScript extends DeadSnakeDrawScript
 	}
 	
 	@Override
-	public synchronized void drawSnake(Graphics g)
+	public void drawSnake(Graphics g)
 	{
 		super.drawSnake(g);
 		beingDrawn.drawSnakeNormally(g, drawingOn);

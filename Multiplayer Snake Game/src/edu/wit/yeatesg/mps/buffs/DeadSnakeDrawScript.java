@@ -12,6 +12,8 @@ import edu.wit.yeatesg.mps.otherdatatypes.PointList;
 import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
 import edu.wit.yeatesg.mps.otherdatatypes.Vector;
 
+import static edu.wit.yeatesg.mps.network.clientserver.MultiplayerSnakeGame.*;
+
 public class DeadSnakeDrawScript extends SnakeDrawScript
 {	
 	protected LittleSegmentGroup[] respectiveSegmentGroups;
@@ -46,7 +48,7 @@ public class DeadSnakeDrawScript extends SnakeDrawScript
 	}
 
 	@Override
-	public synchronized void drawSnake(Graphics g)
+	public void drawSnake(Graphics g)
 	{
 		for (int i = 0; i < respectiveSegmentGroups.length; respectiveSegmentGroups[i].draw(g.create()), i++);
 	}
@@ -69,7 +71,7 @@ public class DeadSnakeDrawScript extends SnakeDrawScript
 			int pixelX = pixelCoords.getX();
 			int pixelY = pixelCoords.getY();
 
-			double littleSegmentSize = (double) GameplayGUI.UNIT_SIZE / 3;
+			double littleSegmentSize = (double) UNIT_SIZE / 3;
 
 			Point drawPoint = new Point(pixelX, pixelY);
 			int origX = drawPoint.getX();

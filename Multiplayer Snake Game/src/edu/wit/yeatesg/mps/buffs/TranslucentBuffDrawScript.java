@@ -7,6 +7,8 @@ import edu.wit.yeatesg.mps.otherdatatypes.Color;
 import edu.wit.yeatesg.mps.otherdatatypes.Point;
 import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
 
+import static edu.wit.yeatesg.mps.network.clientserver.MultiplayerSnakeGame.*;
+
 public class TranslucentBuffDrawScript extends SnakeDrawScript
 {
 	public TranslucentBuffDrawScript(GameplayGUI c, SnakeData who, int duration)
@@ -21,7 +23,7 @@ public class TranslucentBuffDrawScript extends SnakeDrawScript
 		Color drawCol = getColorBasedOnRemainingBuffTime(beingDrawn.getColor(), Color.WHITE, 0.66666, 1);
 		graphics.setColor(drawCol);
 
-		int drawSize = GameplayGUI.UNIT_SIZE;
+		int drawSize = UNIT_SIZE;
 		
 		int outlineThickness = getOutlineThicknessBasedOnProgress();
 
@@ -47,7 +49,7 @@ public class TranslucentBuffDrawScript extends SnakeDrawScript
 		double a = 8, b = -8, c = 1;
 		double progress = getProgress();
 		double thicknessMultiplier = a*Math.pow(progress, 2) + b*progress + c;
-		int outlineThickness = (int) (thicknessMultiplier * GameplayGUI.MAX_OUTLINE_THICKNESS);
+		int outlineThickness = (int) (thicknessMultiplier * MAX_OUTLINE_THICKNESS);
 		outlineThickness = outlineThickness < MIN_THICKNESS ? MIN_THICKNESS : outlineThickness;
 		return outlineThickness;
 	}		

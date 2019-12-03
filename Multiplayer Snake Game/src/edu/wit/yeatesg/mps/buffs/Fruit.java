@@ -10,6 +10,8 @@ import edu.wit.yeatesg.mps.network.clientserver.Server;
 import edu.wit.yeatesg.mps.otherdatatypes.Point;
 import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
 
+import static edu.wit.yeatesg.mps.network.clientserver.MultiplayerSnakeGame.*;
+
 public class Fruit
 {
 	public static final String REGEX = "=";
@@ -107,7 +109,7 @@ public class Fruit
 	{
 		int drawX = GameplayGUI.getPixelCoord(location.getX());
 		int drawY = GameplayGUI.getPixelCoord(location.getY());
-		int drawSize = GameplayGUI.UNIT_SIZE;
+		int drawSize = UNIT_SIZE;
 		switch (type)
 		{
 		case FRUIT_REGULAR:

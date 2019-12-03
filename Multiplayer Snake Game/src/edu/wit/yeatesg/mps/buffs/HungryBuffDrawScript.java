@@ -9,6 +9,8 @@ import edu.wit.yeatesg.mps.otherdatatypes.Point;
 import edu.wit.yeatesg.mps.otherdatatypes.PointList;
 import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
 
+import static edu.wit.yeatesg.mps.network.clientserver.MultiplayerSnakeGame.*;
+
 public class HungryBuffDrawScript extends SnakeDrawScript implements TickListener
 {	
 	private Color[] snakeColorAssigner;
@@ -47,7 +49,7 @@ public class HungryBuffDrawScript extends SnakeDrawScript implements TickListene
 	private boolean highlightOthers;
 	
 	@Override
-	public synchronized void drawSnake(Graphics g)
+	public void drawSnake(Graphics g)
 	{	
 		g = g.create();
 		double progress = getProgress();
@@ -94,7 +96,7 @@ public class HungryBuffDrawScript extends SnakeDrawScript implements TickListene
 						Point drawPoint = GameplayGUI.getPixelCoords(beingDrawn.getPointList(false).get(sIndex));
 						int drawX = drawPoint.getX();
 						int drawY = drawPoint.getY();
-						int drawSize = GameplayGUI.UNIT_SIZE;
+						int drawSize = UNIT_SIZE;
 						g2.setColor(drawCol);
 						g2.fillRect(drawX, drawY, drawSize, drawSize);
 					}
@@ -124,7 +126,7 @@ public class HungryBuffDrawScript extends SnakeDrawScript implements TickListene
 						int shrink = 3;
 						int drawX = drawPoint.getX() + shrink;
 						int drawY = drawPoint.getY() + shrink;
-						int drawSize = GameplayGUI.UNIT_SIZE - 2*shrink;
+						int drawSize = UNIT_SIZE - 2*shrink;
 						g2.fillRect(drawX, drawY, drawSize, drawSize);
 						
 //						Assign the highlight color. If the highlight color is black and the buff is about to end, stop displaying the highlight
@@ -137,7 +139,7 @@ public class HungryBuffDrawScript extends SnakeDrawScript implements TickListene
 						{
 //							Draw the highlight
 							int outlineThickness = 2;
-							drawSize = GameplayGUI.UNIT_SIZE;
+							drawSize = UNIT_SIZE;
 							drawX = drawPoint.getX(); 
 							drawY = drawPoint.getY();	
 							int offset = 0; // Offset gets increased because it is drawing inwards
