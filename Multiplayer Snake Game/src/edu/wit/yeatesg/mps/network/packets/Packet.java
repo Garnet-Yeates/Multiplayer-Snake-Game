@@ -86,11 +86,11 @@ public abstract class Packet
 		return pack;
 	}
 
-	public void send(SocketSecurityTool encryptionTool)
+	public void write(SocketSecurityTool encryptionTool)
 	{
 		try 
 		{
-			byte[] stringBytes = encryptionTool != null ? encryptionTool.encryptStringBytes(getUTF(), PARTNER) : getUTF().getBytes();
+			byte[] stringBytes = encryptionTool != null ? encryptionTool.encryptString(getUTF(), PARTNER) : getUTF().getBytes();
 			outputStream.writeInt(stringBytes.length);
 			outputStream.write(stringBytes);
 		}

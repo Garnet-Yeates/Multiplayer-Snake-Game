@@ -7,7 +7,7 @@ import java.io.PrintWriter;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 
-import edu.wit.yeatesg.mps.network.clientserver.ConnectClient;
+import edu.wit.yeatesg.mps.network.clientserver.ConnectGUI;
 
 public class Test
 {
@@ -15,7 +15,7 @@ public class Test
 	{
 		new Thread(() ->
 		{
-			new ConnectClient();
+			new ConnectGUI();
 		}).start();
 	}
 }

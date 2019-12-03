@@ -28,7 +28,7 @@ public class SocketSecurityTool
 	 * Constructs a new SocketSecurityTool with the given key length. Upon construction, a KeyPairGenerator
 	 * is created and the public/private keys for encrypting/decrypting data for this SocketSecurityTool
 	 * will be initialized. The public and private keys are respectively associated with the fields
-	 * {@link #myKey} and {@link #mySecretKey}. 
+	 * {@link #myEncryptionKey} and {@link #secretDecryptionKey}. 
 	 * @param keyLength
 	 */
 	public SocketSecurityTool(int keyLength)
@@ -38,8 +38,8 @@ public class SocketSecurityTool
 			keyGen = KeyPairGenerator.getInstance("RSA");
 			keyGen.initialize(keyLength);
 			KeyPair pair = keyGen.generateKeyPair();
-			mySecretKey = pair.getPrivate();
-			myKey = pair.getPublic();
+			secretDecryptionKey = pair.getPrivate();
+			myEncryptionKey = pair.getPublic();
 			cipher = Cipher.getInstance("RSA");			
 		}
 		catch (Exception e)
@@ -49,7 +49,7 @@ public class SocketSecurityTool
 	}
 
 	/** Sockets who want to send data to the Socket secured by this tool will need this key to encrypt data */
-	private PublicKey myKey;
+	private PublicKey myEncryptionKey;
 
 	/**
 	 * Sends this SocketSecurityTool's public key to the desired DataOutputStream. Now whenever the Socket
@@ -62,23 +62,33 @@ public class SocketSecurityTool
 	{
 		try
 		{
-			byte[] keyBytes = myKey.getEncoded();
+			byte[] keyBytes = myEncryptionKey.getEncoded();
 			toWho.writeInt(keyBytes.length);
 			toWho.write(keyBytes);
 		}
 		catch (IOException e) { System.out.println("Socket closed before/while trying to send sharable key"); }
 	}
 
-	/** The Socket secured by this tool will use this key to send data to another Socket secured by another SocketSecurityTool */
-	private PublicKey partnerKey;
+	/** Represents the public key of some other SocketSecurityTool that this tool is sending encrypted data to */
+	private PublicKey partnerEncryptionKey;
 
-	public void setPartnerKey(byte[] keyBytes) 
+	/**
+	 * Sets this SocketSecurityTool's {@link #partnerEncryptionKey} to the PublicKey represented by the given
+	 * byte[]. Generally speaking, if two Sockets that are both secured using a SocketSecurityTool want to send
+	 * encrypted data to each other, they should both send their public keys to each other as a byte[] by using the
+	 * {@link #sendPublicKey(DataOutputStream)} method, and once they receive them, they should call
+	 * {@link #setPartnerKey(byte[])} to set their partner key to the other client's public key. Once this is
+	 * established, they are "partnered" with each other, meaning they can both encrypt and send data to each other
+	 * using their partner key, and they can both decrypt data received from the other by using their private key.
+	 * @param encodedKey the encoded version of the partner key
+	 */
+	public void setPartnerKey(byte[] encodedKey) 
 	{
 		try
 		{
-			X509EncodedKeySpec spec = new X509EncodedKeySpec(keyBytes);
+			X509EncodedKeySpec spec = new X509EncodedKeySpec(encodedKey);
 			KeyFactory kf = KeyFactory.getInstance("RSA");
-			partnerKey = kf.generatePublic(spec);
+			partnerEncryptionKey = kf.generatePublic(spec);
 		}
 		catch (NoSuchAlgorithmException | InvalidKeySpecException e)
 		{
@@ -88,54 +98,106 @@ public class SocketSecurityTool
 
 	}
 	
-	public enum EncryptingFor { SELF, PARTNER }
-	
-	public static final EncryptingFor ME = EncryptingFor.SELF;
-	public static final EncryptingFor PARTNER = EncryptingFor.PARTNER;
-	
-	public byte[] encryptBytes(byte[] bytes, EncryptingFor who)
-	{
-		try
-		{
-			cipher.init(Cipher.ENCRYPT_MODE, who == PARTNER ? partnerKey : myKey);
-			return cipher.doFinal(bytes);
-		} 
-		catch (IllegalBlockSizeException | InvalidKeyException | BadPaddingException e)
-		{
-			System.out.println("[ASymmetricEncryptionTool] An instance failed to encrypt using the key set from setEncryptionKey(byte[])");
-			return null;
-		}
-	}
-	
-	public byte[] encryptStringBytes(String s, EncryptingFor who)
-	{
-		return encryptBytes(s.getBytes(), who);
-	}
+	public enum Key { SELF, PARTNER }
+
+	public static final Key ME = Key.SELF;
+	public static final Key PARTNER = Key.PARTNER;
 
 	/**
-	 * This is the key that this AsymmetricEncryptionTool will use to decrypt packets that are
-	 * sent from other clients. The clients who are sending encrypted packets to this tool should
-	 * use this tools {@link #myKey} to encrypt the packets.
+	 * Encrypts the given array of bytes using either {@link #myEncryptionKey} or {@link #partnerEncryptionKey}.
+	 * @param bytes the byte[] that is being encrypted.
+	 * @param whichKey determines whether {@link #myEncryptionKey} or {@link #partnerEncryptionKey} is used.
+	 * @return a byte[] representing the encrypted version of the given array using the selected key.
+	 * @throws EncryptionFailedException if the key is invalid or if some other relevant exception is thrown.
 	 */
-	private PrivateKey mySecretKey;
-
-	public byte[] decryptBytes(byte[] decrypting)
-	{
+	public byte[] encryptBytes(byte[] bytes, Key whichKey) throws EncryptionFailedException
+	{	
 		try
 		{
-			cipher.init(Cipher.DECRYPT_MODE, mySecretKey);
-			return cipher.doFinal(decrypting);
+			cipher.init(Cipher.ENCRYPT_MODE, whichKey == PARTNER ? partnerEncryptionKey : myEncryptionKey);
+			return cipher.doFinal(bytes);
 		}
 		catch (InvalidKeyException | IllegalBlockSizeException | BadPaddingException e)
 		{
-			System.out.println("[ASymmetricEncryptionTool] An instance failed to decrypt data");
-			e.printStackTrace();
+			throw new EncryptionFailedException(e);
 		}
-		return null;
+	}
+
+	/**
+	 * Converts the given String to an array of bytes using {@link String#getBytes()} and calls
+	 * {@link #encryptBytes(byte[], Key)} on the byte array.
+	 * @param string the String that is being encrypted.
+	 * @param whichKey determines whether {@link #myEncryptionKey} or {@link #partnerEncryptionKey} is used.
+	 * @return a byte[] representing the encrypted bytes of the String.
+	 * @throws EncryptionFailedException if it is thrown by {@link #encryptBytes(byte[], Key)}
+	 */
+	public byte[] encryptString(String string, Key whichKey) throws EncryptionFailedException
+	{
+		return encryptBytes(string.getBytes(), whichKey);
+	}
+
+	/** The private key of this SocketSecurityTool. It is used to decrypt data that was encrypted with {@link #myEncryptionKey} */
+	private PrivateKey secretDecryptionKey;
+
+	/**
+	 * Decrypts the given byte array using the PrivateKey of this SocketSecurityTool, represented by
+	 * {@link #secretDecryptionKey}. This key was generated upon initialization by the {@link #keyGen}
+	 * @param encryptedBytes the byte[] that is being decrypted
+	 * @return a byte[] representing the decrypted version of the input byte[] using {@link #secretDecryptionKey} 
+	 * @throws RuntimeException
+	 */
+	public byte[] decryptBytes(byte[] encryptedBytes)
+	{
+		try
+		{
+			cipher.init(Cipher.DECRYPT_MODE, secretDecryptionKey);
+			return cipher.doFinal(encryptedBytes);
+		}
+		catch (Exception e)
+		{
+//			DecryptBytes should never normally throw an exception so if it does, crash program
+			throw new RuntimeException();
+		}
+	}
+
+	/**
+	 * Treats the given byte[] as an encoded String that was encrypted, decrypts it using {@link #decryptBytes(byte[])},
+	 * and converts it back into a String and returns it.
+	 * @param encryptedStringBytes the byte[] that is being decrypted and converted into a String.
+	 * @return the byte[] that was decrypted using {@link #secretDecryptionKey}, converted to a String.
+	 */
+	public String decryptString(byte[] encryptedStringBytes)
+	{
+		return new String(decryptBytes(encryptedStringBytes));
+	}
+}
+/**
+ * This exception is thrown when {@link #encryptBytes(byte[], Key)} is called using {@value Key#PARTNER} but the
+ * partner key is either null or invalid.
+ * @author yeatesg
+ */
+class EncryptionFailedException extends RuntimeException
+{
+	private static final long serialVersionUID = 5752720660752085070L;
+	
+	private Exception causedBy;
+	
+	public EncryptionFailedException(Exception causedBy)
+	{
+		this.causedBy = causedBy;
 	}
 	
-	public String decryptStringBytes(byte[] stringBytes)
+	@Override
+	public String getMessage()
 	{
-		return new String(decryptBytes(stringBytes));
+		return "encryptBytes(byte[]) threw " + causedBy.getClass().getSimpleName() + ".";
+	}
+	
+	@Override
+	public void printStackTrace()
+	{
+		super.printStackTrace();
+		System.out.println("\nCAUSED BY:");
+		causedBy.printStackTrace();
 	}
 }

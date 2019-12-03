@@ -5,7 +5,7 @@ import java.awt.Graphics;
 import java.util.ArrayList;
 import java.util.Random;
 
-import edu.wit.yeatesg.mps.network.clientserver.GameplayClient;
+import edu.wit.yeatesg.mps.network.clientserver.GameplayGUI;
 import edu.wit.yeatesg.mps.network.clientserver.Server;
 import edu.wit.yeatesg.mps.otherdatatypes.Point;
 import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
@@ -105,9 +105,9 @@ public class Fruit
 
 	public void draw(Graphics graphics)
 	{
-		int drawX = GameplayClient.getPixelCoord(location.getX());
-		int drawY = GameplayClient.getPixelCoord(location.getY());
-		int drawSize = GameplayClient.UNIT_SIZE;
+		int drawX = GameplayGUI.getPixelCoord(location.getX());
+		int drawY = GameplayGUI.getPixelCoord(location.getY());
+		int drawSize = GameplayGUI.UNIT_SIZE;
 		switch (type)
 		{
 		case FRUIT_REGULAR:

@@ -17,23 +17,23 @@ import javax.swing.border.EmptyBorder;
 
 import edu.wit.yeatesg.mps.network.packets.Packet;
 
-public class ConnectClient extends JPanel
+public class ConnectGUI extends JPanel
 {
 	private static final long serialVersionUID = 1L;
 
 	private NetworkClient internalClient;
 	
-	private ConnectClientGUI frame;
+	private ConnectFrame frame;
 	
-	public ConnectClient(String defaultClientName)
+	public ConnectGUI(String defaultClientName)
 	{
-		frame = new ConnectClientGUI();
-		internalClient = new NetworkClient(null, defaultClientName);
+		frame = new ConnectFrame();
+		internalClient = new NetworkClient(defaultClientName);
 		setLookAndFeel();
 		frame.setVisible(true);
 	}
 	
-	public ConnectClient()
+	public ConnectGUI()
 	{
 		this(null);
 	}
@@ -53,19 +53,13 @@ public class ConnectClient extends JPanel
 	{
 		try
 		{	
-			try
-			{
-				Integer.parseInt(field_port.getText());
-			}
-			catch (Exception e)
-			{ 
-				throw new RuntimeException("Invalid Port");
-			}
+			try { Integer.parseInt(field_port.getText()); }
+			catch (Exception e) {  throw new RuntimeException("Invalid Port"); }
 
 			if (!field_ip.getText().equals("localhost") && !field_ip.getText().contains("."))
 				throw new RuntimeException("Invalid IP Address");
 
-			if (!GameplayClient.validName(field_name.getText()))
+			if (!GameplayGUI.validName(field_name.getText()))
 				throw new RuntimeException("Invalid Client Name");
 
 			int port = Integer.parseInt(field_port.getText());
@@ -80,7 +74,7 @@ public class ConnectClient extends JPanel
 			
 			// Inputs are not erroneous, try to connect
 
-			if (internalClient.connect(field_ip.getText(), port, isHost))
+			if (internalClient.attemptConnect(field_ip.getText(), port, isHost))
 				frame.dispose();
 		}
 		catch (Exception e)
@@ -116,23 +110,23 @@ public class ConnectClient extends JPanel
 		}
 	}
 	
-	private class ConnectClientGUI extends JFrame
+	private class ConnectFrame extends JFrame
 	{
 		private static final long serialVersionUID = 5135113137603592910L;
 		
-		public ConnectClientGUI()
+		public ConnectFrame()
 		{
 			setResizable(false);
 			setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-			setBounds(100, 100, 175 + GameplayClient.JAR_OFFSET_X, 170 + GameplayClient.JAR_OFFSET_Y);
-			ConnectClient.this.setBorder(new EmptyBorder(5, 5, 5, 5));
-			setContentPane(ConnectClient.this);
-			ConnectClient.this.setLayout(null);
+			setBounds(100, 100, 175 + GameplayGUI.JAR_OFFSET_X, 175 + GameplayGUI.JAR_OFFSET_Y);
+			ConnectGUI.this.setBorder(new EmptyBorder(5, 5, 5, 5));
+			setContentPane(ConnectGUI.this);
+			ConnectGUI.this.setLayout(null);
 
 			field_ip = new JTextField();
 			field_ip.setHorizontalAlignment(SwingConstants.LEFT);
 			field_ip.setBounds(10, 29, 96, 20);
-			ConnectClient.this.add(field_ip);
+			ConnectGUI.this.add(field_ip);
 			field_ip.setColumns(10);
 			field_ip.setText("localhost");
 
@@ -141,7 +135,7 @@ public class ConnectClient extends JPanel
 			field_port.setColumns(10);
 			field_port.setBounds(112, 29, 48, 20);
 			field_port.setText("8122");
-			ConnectClient.this.add(field_port);
+			ConnectGUI.this.add(field_port);
 
 			field_name = new JTextField();
 			field_name.setText("Nom");
@@ -152,44 +146,44 @@ public class ConnectClient extends JPanel
 				@Override
 				public void keyTyped(KeyEvent e)
 				{
-					if (field_name.getText().length() >= GameplayClient.MAX_NAME_LENGTH)
+					if (field_name.getText().length() >= GameplayGUI.MAX_NAME_LENGTH)
 						e.consume();
 				}
 				
 				public void keyReleased(KeyEvent e) { }
 				public void keyPressed(KeyEvent e) { }
 			});
-			ConnectClient.this.add(field_name);
+			ConnectGUI.this.add(field_name);
 
 			JLabel label_name = new JLabel("Name");
 			label_name.setFont(new Font("Tahoma", Font.BOLD, 11));
 			label_name.setBounds(10, 55, 61, 14);
-			ConnectClient.this.add(label_name);
+			ConnectGUI.this.add(label_name);
 
 			label_statusMessage = new JLabel("");
 			label_statusMessage.setForeground(Color.RED);
 			label_statusMessage.setBounds(10, 128, 148, 14);
-			ConnectClient.this.add(label_statusMessage);
+			ConnectGUI.this.add(label_statusMessage);
 
 			JLabel label_ipAddress = new JLabel("IP Address");
 			label_ipAddress.setFont(new Font("Tahoma", Font.BOLD, 11));
 			label_ipAddress.setBounds(10, 11, 61, 14);
-			ConnectClient.this.add(label_ipAddress);
+			ConnectGUI.this.add(label_ipAddress);
 
 			JLabel label_port = new JLabel("Port");
 			label_port.setFont(new Font("Tahoma", Font.BOLD, 11));
 			label_port.setBounds(116, 11, 53, 14);
-			ConnectClient.this.add(label_port);
+			ConnectGUI.this.add(label_port);
 
 			btn_Connect = new JButton("Connect");
 			btn_Connect.setBounds(75, 101, 85, 23);
 			btn_Connect.addActionListener((e) -> onButtonPress(false));
-			ConnectClient.this.add(btn_Connect);
+			ConnectGUI.this.add(btn_Connect);
 
 			btn_Host = new JButton("Host");
 			btn_Host.setBounds(10, 101, 61, 23);
 			btn_Host.addActionListener((e) -> onButtonPress(true));
-			ConnectClient.this.add(btn_Host);			
+			ConnectGUI.this.add(btn_Host);			
 		}
 	}
 }

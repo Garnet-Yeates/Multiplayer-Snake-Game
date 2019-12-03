@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Random;
 
-import edu.wit.yeatesg.mps.network.clientserver.GameplayClient;
+import edu.wit.yeatesg.mps.network.clientserver.GameplayGUI;
 import edu.wit.yeatesg.mps.otherdatatypes.Color;
 import edu.wit.yeatesg.mps.otherdatatypes.Point;
 import edu.wit.yeatesg.mps.otherdatatypes.PointList;
@@ -18,7 +18,7 @@ public class DeadSnakeDrawScript extends SnakeDrawScript
 		
 	public static final int DURATION = 1000;
 	
-	public DeadSnakeDrawScript(GameplayClient container, SnakeData who)
+	public DeadSnakeDrawScript(GameplayGUI container, SnakeData who)
 	{
 		super(container, who, DURATION);
 		System.out.println("new old fashioned dead dead");
@@ -33,7 +33,7 @@ public class DeadSnakeDrawScript extends SnakeDrawScript
 		start();
 	}
 	
-	public DeadSnakeDrawScript(GameplayClient container, SnakeData who, PointList deadPoints)
+	public DeadSnakeDrawScript(GameplayGUI container, SnakeData who, PointList deadPoints)
 	{
 		super(container, who, DURATION);
 		int index = 0;
@@ -65,11 +65,11 @@ public class DeadSnakeDrawScript extends SnakeDrawScript
 		
 		public LittleSegmentGroup(Point segmentLocation)
 		{
-			Point pixelCoords = GameplayClient.getPixelCoords(segmentLocation);
+			Point pixelCoords = GameplayGUI.getPixelCoords(segmentLocation);
 			int pixelX = pixelCoords.getX();
 			int pixelY = pixelCoords.getY();
 
-			double littleSegmentSize = (double) GameplayClient.UNIT_SIZE / 3;
+			double littleSegmentSize = (double) GameplayGUI.UNIT_SIZE / 3;
 
 			Point drawPoint = new Point(pixelX, pixelY);
 			int origX = drawPoint.getX();

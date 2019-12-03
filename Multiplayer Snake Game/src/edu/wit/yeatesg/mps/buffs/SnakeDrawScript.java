@@ -5,13 +5,13 @@ import java.awt.Graphics;
 
 import javax.swing.Timer;
 
-import edu.wit.yeatesg.mps.network.clientserver.GameplayClient;
+import edu.wit.yeatesg.mps.network.clientserver.GameplayGUI;
 import edu.wit.yeatesg.mps.otherdatatypes.Color;
 import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
 
 public abstract class SnakeDrawScript implements TickListener
 {
-	protected GameplayClient drawingOn;
+	protected GameplayGUI drawingOn;
 
 	protected SnakeData beingDrawn;
 
@@ -28,7 +28,7 @@ public abstract class SnakeDrawScript implements TickListener
 	
 	private AnimationTickTimer timer;
 	
-	public SnakeDrawScript(GameplayClient container, SnakeData who, long duration)
+	public SnakeDrawScript(GameplayGUI container, SnakeData who, long duration)
 	{
 		container.addTickListener(this);
 		maxDuration = duration;

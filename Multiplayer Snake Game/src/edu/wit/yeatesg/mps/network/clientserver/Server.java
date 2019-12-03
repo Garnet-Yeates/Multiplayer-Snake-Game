@@ -87,8 +87,8 @@ public class Server implements Runnable
 							{
 								byte[] bytes = new byte[in.readInt()];
 								in.read(bytes);
-								String received = serverDecrypter.decryptStringBytes(bytes);
-								onReceiveEncrypted(received);
+								String received = serverDecrypter.decryptString(bytes);
+								onReceive(received);
 							}
 						} 
 						else
@@ -220,7 +220,6 @@ public class Server implements Runnable
 		return connectedClients.size() == 4;
 	}
 	
-	
 	/**
 	 * This method is used for when the Server is sending a packet to a single client. This method
 	 * sets the data stream of the packet to the data stream associated with the given client
@@ -236,7 +235,7 @@ public class Server implements Runnable
 	public void send(Packet p, SnakeData to, boolean encrypting)
 	{
 		p.setDataStream(to.getOutputStream());
-		p.send(encrypting ? to.getEncrypter() : null);
+		p.write(encrypting ? to.getEncrypter() : null);
 	}
 
 	public void sendToAll(Packet p)
@@ -251,11 +250,11 @@ public class Server implements Runnable
 	 * the UTF data is passed to this onReceive() method. This method is synchronized because we do not want
 	 * the server to receive two packets of data concurrently, because that can result in a concurrent modification
 	 * exception in the {@link #connectedClients} list, among other unpredictable things. The {@link #onTick()} method
-	 * is also synchronized for the same reason ({@link #onTick()} and {@link #onReceiveEncrypted(String)} are the only two
+	 * is also synchronized for the same reason ({@link #onTick()} and {@link #onReceive(String)} are the only two
 	 * methods in the server that interact with other threads, so they are the only two that should be synchronized)
 	 * @param data the raw UTF data received from the client socket on another thread
 	 */
-	public synchronized void onReceiveEncrypted(String data) 
+	public synchronized void onReceive(String data) 
 	{
 		Packet packetReceiving = Packet.parsePacket(data);
 		switch (packetReceiving.getClass().getSimpleName())
@@ -380,7 +379,7 @@ public class Server implements Runnable
 	
 	/**
 	 * This method is called whenever the Server's tick timer is called. This method will be called every
-	 * {@link #tickRate} milliseconds. Since the tick timer is on a different thread, and {@link #onReceiveEncrypted(String)}
+	 * {@link #tickRate} milliseconds. Since the tick timer is on a different thread, and {@link #onReceive(String)}
 	 * is called in a different thread, both of these methods are synchronized so that there won't be any
 	 * ConcurrentModificationException thrown as a result of 2 or more threads looping through {@link #connectedClients}
 	 */
@@ -411,7 +410,7 @@ public class Server implements Runnable
 
 				Point oldHead = points.get(0);
 				Point head = oldHead.addVector(aClient.getDirection().getVector());
-				head = GameplayClient.keepInBounds(head);
+				head = GameplayGUI.keepInBounds(head);
 
 				points.add(0, head);
 				points.remove(points.size() - 1);
@@ -541,6 +540,10 @@ public class Server implements Runnable
 
 	private ArrayList<Fruit> allFruit = new ArrayList<>();
 
+	/**
+	 * 
+	 * @return
+	 */
 	public boolean spawnRandomFruit()
 	{
 		Random rand = new Random();
@@ -551,8 +554,8 @@ public class Server implements Runnable
 //			If we have greater than a 1/20 chance of random spawning one, do this
 			if (getPercentCovered() < 0.95)
 			{
-				int randX = rand.nextInt(GameplayClient.NUM_HORIZONTAL_UNITS);
-				int randY = rand.nextInt(GameplayClient.NUM_VERTICAL_UNITS);
+				int randX = rand.nextInt(GameplayGUI.NUM_HORIZONTAL_UNITS);
+				int randY = rand.nextInt(GameplayGUI.NUM_VERTICAL_UNITS);
 				Point theoreticalFruitLoc = new Point(randX, randY);
 				if (!hasInterceptingFruit(theoreticalFruitLoc) && !hasInterceptingSnake(theoreticalFruitLoc))
 				{
@@ -560,12 +563,12 @@ public class Server implements Runnable
 					spawned = true;
 				}
 			}
-//		    If >90% of the map is covered, it is probably more efficient to just loop through a list of available spaces and choose a random index
+//		    If >95% of the map is covered, it is probably more efficient to just loop through a list of available spaces and choose a random index
 			else if (getPercentCovered() < 1)
 			{
 				ArrayList<Point> availableLocations = new ArrayList<>();
-				for (int x = 0; x < GameplayClient.NUM_HORIZONTAL_UNITS; x++)
-					for (int y = 0; y < GameplayClient.NUM_VERTICAL_SPACES; y++)
+				for (int x = 0; x < GameplayGUI.NUM_HORIZONTAL_UNITS; x++)
+					for (int y = 0; y < GameplayGUI.NUM_VERTICAL_SPACES; y++)
 						availableLocations.add(new Point(x, y));
 				for (SnakeData client : connectedClients)
 					availableLocations.removeAll(client.getPointList(false));
@@ -585,6 +588,10 @@ public class Server implements Runnable
 		return false;
 	}
 
+	/**
+	 * Obtains the total amount of squares occupied by all 4 Snakes combined.
+	 * @return the number of covered squares.
+	 */
 	public int getCoveredArea()
 	{
 		int covered = 0;
@@ -594,12 +601,13 @@ public class Server implements Runnable
 	}
 
 	/**
-	 * Determines how many spaces on the map are empty spaces (a space is empty if there isn't a
-	 * @return
+	 * Determines the percent of the map that is covered by Snake segments.
+	 * on it).
+	 * @return the covered squares / total squares.
 	 */
 	public double getPercentCovered()
 	{
-		return (double) getCoveredArea() / GameplayClient.MAX_AREA;
+		return (double) getCoveredArea() / GameplayGUI.MAX_AREA;
 	}
 
 	/**

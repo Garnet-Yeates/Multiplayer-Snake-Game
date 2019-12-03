@@ -3,7 +3,7 @@ package edu.wit.yeatesg.mps.buffs;
 import java.awt.Graphics;
 import java.util.Iterator;
 
-import edu.wit.yeatesg.mps.network.clientserver.GameplayClient;
+import edu.wit.yeatesg.mps.network.clientserver.GameplayGUI;
 import edu.wit.yeatesg.mps.otherdatatypes.Color;
 import edu.wit.yeatesg.mps.otherdatatypes.Point;
 import edu.wit.yeatesg.mps.otherdatatypes.PointList;
@@ -21,7 +21,7 @@ public class HungryBuffDrawScript extends SnakeDrawScript implements TickListene
 	public static final int HIGHLIGHT_ANIMATION_RATE = 3;
 	private int highlightColIndex = 0;
 	
-	public HungryBuffDrawScript(GameplayClient container, SnakeData who, long duration)
+	public HungryBuffDrawScript(GameplayGUI container, SnakeData who, long duration)
 	{
 		super(container, who, duration);
 		
@@ -91,10 +91,10 @@ public class HungryBuffDrawScript extends SnakeDrawScript implements TickListene
 					{
 						Color drawCol = snakeColorAssigner[cIndex];
 						cIndex = (cIndex + 1) % snakeColorAssigner.length;
-						Point drawPoint = GameplayClient.getPixelCoords(beingDrawn.getPointList(false).get(sIndex));
+						Point drawPoint = GameplayGUI.getPixelCoords(beingDrawn.getPointList(false).get(sIndex));
 						int drawX = drawPoint.getX();
 						int drawY = drawPoint.getY();
-						int drawSize = GameplayClient.UNIT_SIZE;
+						int drawSize = GameplayGUI.UNIT_SIZE;
 						g2.setColor(drawCol);
 						g2.fillRect(drawX, drawY, drawSize, drawSize);
 					}
@@ -120,11 +120,11 @@ public class HungryBuffDrawScript extends SnakeDrawScript implements TickListene
 						
 //						If highlighting others, shrink the spots of the other Snakes that are edible
 						g2.setColor(otherClient.getColor());
-						Point drawPoint = GameplayClient.getPixelCoords(otherPointList.get(i));
+						Point drawPoint = GameplayGUI.getPixelCoords(otherPointList.get(i));
 						int shrink = 3;
 						int drawX = drawPoint.getX() + shrink;
 						int drawY = drawPoint.getY() + shrink;
-						int drawSize = GameplayClient.UNIT_SIZE - 2*shrink;
+						int drawSize = GameplayGUI.UNIT_SIZE - 2*shrink;
 						g2.fillRect(drawX, drawY, drawSize, drawSize);
 						
 //						Assign the highlight color. If the highlight color is black and the buff is about to end, stop displaying the highlight
@@ -137,7 +137,7 @@ public class HungryBuffDrawScript extends SnakeDrawScript implements TickListene
 						{
 //							Draw the highlight
 							int outlineThickness = 2;
-							drawSize = GameplayClient.UNIT_SIZE;
+							drawSize = GameplayGUI.UNIT_SIZE;
 							drawX = drawPoint.getX(); 
 							drawY = drawPoint.getY();	
 							int offset = 0; // Offset gets increased because it is drawing inwards

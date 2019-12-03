@@ -38,7 +38,7 @@ import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
 import edu.wit.yeatesg.mps.otherdatatypes.SnakeList;
 import edu.wit.yeatesg.mps.otherdatatypes.Vector;
 
-public class GameplayClient extends JPanel implements ClientListener, KeyListener, WindowListener
+public class GameplayGUI extends JPanel implements ClientListener, KeyListener, WindowListener
 {	
 	private static final long serialVersionUID = 5573784413946297734L;
 
@@ -53,7 +53,7 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 	public static final int NUM_VERTICAL_SPACES = NUM_VERTICAL_UNITS + 1;
 	public static final int UNIT_SIZE = 18; // 18
 	public static final int SPACE_SIZE = 1; 
-	public static final int MAX_AREA = GameplayClient.NUM_HORIZONTAL_UNITS * GameplayClient.NUM_VERTICAL_UNITS;
+	public static final int MAX_AREA = GameplayGUI.NUM_HORIZONTAL_UNITS * GameplayGUI.NUM_VERTICAL_UNITS;
 
 	public static final int MAX_OUTLINE_THICKNESS = UNIT_SIZE / 2;
 
@@ -64,14 +64,14 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 
 	private NetworkClient networkClient;
 	
-	public GameplayClient(NetworkClient networkClient, SnakeData thisClient, SnakeList allClients)
+	public GameplayGUI(NetworkClient networkClient, SnakeData thisClient, SnakeList allClients)
 	{
 		this.thisClient = thisClient;
 		this.allClients = allClients;
 		// new snake game frame
 		this.networkClient = networkClient;
 		networkClient.setListener(this);
-		new SnakeGameFrame();
+		new GameplayFrame();
 	}
 	
 	@Override
@@ -408,33 +408,33 @@ public class GameplayClient extends JPanel implements ClientListener, KeyListene
 	public static Point keepInBounds(Point head)
 	{
 		head = head.clone();
-		if (head.getX() > GameplayClient.NUM_HORIZONTAL_UNITS - 1)
+		if (head.getX() > GameplayGUI.NUM_HORIZONTAL_UNITS - 1)
 			head.setX(0);
 		else if (head.getX() < 0)
-			head.setX(GameplayClient.NUM_HORIZONTAL_UNITS - 1);
-		else if (head.getY() > GameplayClient.NUM_VERTICAL_UNITS - 1)
+			head.setX(GameplayGUI.NUM_HORIZONTAL_UNITS - 1);
+		else if (head.getY() > GameplayGUI.NUM_VERTICAL_UNITS - 1)
 			head.setY(0);
 		else if (head.getY() < 0)
-			head.setY(GameplayClient.NUM_VERTICAL_UNITS - 1);
+			head.setY(GameplayGUI.NUM_VERTICAL_UNITS - 1);
 		return head;
 	}
 
 	// Frame
 	
-	public class SnakeGameFrame extends JFrame
+	public class GameplayFrame extends JFrame
 	{	
 		private static final long serialVersionUID = -1155890718213904522L;
 
-		public SnakeGameFrame()
+		public GameplayFrame()
 		{
 			setTitle(thisClient.getClientName());
-			setContentPane(GameplayClient.this);
-			ConnectClient.setLookAndFeel();
-			setBounds(0, 0, GameplayClient.WIDTH + 6, GameplayClient.HEIGHT + 29);
+			setContentPane(GameplayGUI.this);
+			ConnectGUI.setLookAndFeel();
+			setBounds(0, 0, GameplayGUI.WIDTH + 6, GameplayGUI.HEIGHT + 29);
 			setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 			setResizable(false);
-			addWindowListener(GameplayClient.this);
-			addKeyListener(GameplayClient.this);
+			addWindowListener(GameplayGUI.this);
+			addKeyListener(GameplayGUI.this);
 			setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
 			setVisible(true);
 		}

@@ -14,7 +14,7 @@ import edu.wit.yeatesg.mps.buffs.TranslucentBuffDrawScript;
 import edu.wit.yeatesg.mps.buffs.BuffType;
 import edu.wit.yeatesg.mps.buffs.Fruit;
 import edu.wit.yeatesg.mps.buffs.HungryBuffDrawScript;
-import edu.wit.yeatesg.mps.network.clientserver.GameplayClient;
+import edu.wit.yeatesg.mps.network.clientserver.GameplayGUI;
 import edu.wit.yeatesg.mps.network.clientserver.SocketSecurityTool;
 import edu.wit.yeatesg.mps.network.packets.SnakeUpdatePacket;
 
@@ -105,7 +105,7 @@ public class SnakeData
 			PointList pointList = this.pointList.clone(); 
 			Point oldHead = pointList.get(0);
 			Point head = oldHead.addVector(direction.getVector());
-			head = GameplayClient.keepInBounds(head);
+			head = GameplayGUI.keepInBounds(head);
 
 			pointList.add(0, head);
 
@@ -410,17 +410,17 @@ public class SnakeData
 			$currentDrawScript.drawSnake(g);
 	}
 	
-	public void drawNormallyIfApplicable(Graphics g, GameplayClient drawingOn)
+	public void drawNormallyIfApplicable(Graphics g, GameplayGUI drawingOn)
 	{
 		if ($currentDrawScript == null && isAlive)
 			drawSnakeNormally(g, drawingOn);
 	}
 	
-	public void drawSnakeNormally(Graphics g, GameplayClient drawingOn)
+	public void drawSnakeNormally(Graphics g, GameplayGUI drawingOn)
 	{
 		{
 			boolean drawingSelf = this.equals(drawingOn.getClient());
-			int drawSize = GameplayClient.UNIT_SIZE;
+			int drawSize = GameplayGUI.UNIT_SIZE;
 			int index = 0;
 			for (Point segmentLoc : pointList)
 			{
@@ -429,11 +429,11 @@ public class SnakeData
 						|| index == 0
 						|| (getLength() > Fruit.MIN_FRUIT_HUNGRY_LENGTH && index < getLength() - Fruit.MAX_BITE_OFF))
 				{
-					Point drawCoords = GameplayClient.getPixelCoords(segmentLoc);
+					Point drawCoords = GameplayGUI.getPixelCoords(segmentLoc);
 					g.setColor(color);
 					if (getOccurrenceOf(segmentLoc) > 1)
 					{
-						int outlineThickness = (int) (GameplayClient.MAX_OUTLINE_THICKNESS*0.65);
+						int outlineThickness = (int) (GameplayGUI.MAX_OUTLINE_THICKNESS*0.65);
 						int offset = 0;
 						for (int i = 0; i < outlineThickness; i++)
 						{

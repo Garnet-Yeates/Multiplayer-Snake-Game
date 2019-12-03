@@ -24,7 +24,7 @@ import java.util.ArrayList;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 
-public class LobbyClient extends JPanel implements ClientListener, WindowListener
+public class LobbyGUI extends JPanel implements ClientListener, WindowListener
 {	
 	private static final long serialVersionUID = 4339194739358327310L;
 
@@ -34,17 +34,17 @@ public class LobbyClient extends JPanel implements ClientListener, WindowListene
 	
 	private NetworkClient networkClient;
 	
-	private LobbyGUI frame;
+	private LobbyFrame frame;
 	
-	public LobbyClient(String clientName, NetworkClient internal, int serverPort)
+	public LobbyGUI(String clientName, NetworkClient internal, int serverPort)
 	{
-		frame = new LobbyGUI();
+		frame = new LobbyFrame();
 		this.networkClient = internal;
 		networkClient.setListener(this);
 		networkClient.startAutoReceiving();
 		thisClientName = clientName;	
 		allClients = new SnakeList();
-		ConnectClient.setLookAndFeel();
+		ConnectGUI.setLookAndFeel();
 	}
 	
 	private void onPlayerJoinLobby(SnakeData whoJoinedOnLastUpdate)
@@ -103,7 +103,7 @@ public class LobbyClient extends JPanel implements ClientListener, WindowListene
 	
 	private void onGameStart()
 	{
-		new GameplayClient(networkClient, thisClient, allClients);
+		new GameplayGUI(networkClient, thisClient, allClients);
 		frame.dispose();
 	}
 
@@ -208,13 +208,13 @@ public class LobbyClient extends JPanel implements ClientListener, WindowListene
 			switch (playerNum)
 			{
 			case 1:
-				return new Point(1 + (GameplayClient.SSL - 1), 1);
+				return new Point(1 + (GameplayGUI.SSL - 1), 1);
 			case 2:
-				return new Point(GameplayClient.NUM_HORIZONTAL_SPACES - 3 - (GameplayClient.SSL - 1), GameplayClient.NUM_VERTICAL_SPACES - 3);
+				return new Point(GameplayGUI.NUM_HORIZONTAL_SPACES - 3 - (GameplayGUI.SSL - 1), GameplayGUI.NUM_VERTICAL_SPACES - 3);
 			case 3:
-				return new Point(GameplayClient.NUM_HORIZONTAL_SPACES - 3, 1 + (GameplayClient.SSL - 1));
+				return new Point(GameplayGUI.NUM_HORIZONTAL_SPACES - 3, 1 + (GameplayGUI.SSL - 1));
 			case 4:
-				return new Point(1, GameplayClient.NUM_VERTICAL_SPACES - 3 - (GameplayClient.SSL - 1));
+				return new Point(1, GameplayGUI.NUM_VERTICAL_SPACES - 3 - (GameplayGUI.SSL - 1));
 			default:
 				return null;
 			}
@@ -345,34 +345,34 @@ public class LobbyClient extends JPanel implements ClientListener, WindowListene
 	
 	private JButton button_startGame;
 	
-	public class LobbyGUI extends JFrame
+	public class LobbyFrame extends JFrame
 	{
 		private static final long serialVersionUID = -714233913230803955L;
 
-		public LobbyGUI()
+		public LobbyFrame()
 		{
 			setTitle(thisClientName);
 			setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
-			LobbyClient.this.setBorder(new EmptyBorder(5, 5, 5, 5));
-			LobbyClient.this.setLayout(null);
-			setContentPane(LobbyClient.this);
+			LobbyGUI.this.setBorder(new EmptyBorder(5, 5, 5, 5));
+			LobbyGUI.this.setLayout(null);
+			setContentPane(LobbyGUI.this);
 			setTitle(thisClientName);
-			setBounds(0, 0, PlayerDisplayPanel.GAP*3 + PlayerDisplayPanel.WIDTH*2 + GameplayClient.JAR_OFFSET_X + 2, PlayerDisplayPanel.GAP*3 + PlayerDisplayPanel.HEIGHT*2 + 70 + GameplayClient.JAR_OFFSET_Y);
+			setBounds(0, 0, PlayerDisplayPanel.GAP*3 + PlayerDisplayPanel.WIDTH*2 + GameplayGUI.JAR_OFFSET_X + 2, PlayerDisplayPanel.GAP*3 + PlayerDisplayPanel.HEIGHT*2 + 70 + GameplayGUI.JAR_OFFSET_Y);
 			setResizable(false);
 
-			addWindowListener(LobbyClient.this);
+			addWindowListener(LobbyGUI.this);
 
-			LobbyClient.this.setBackground(Color.BLACK);
-			LobbyClient.this.setForeground(Color.WHITE);
+			LobbyGUI.this.setBackground(Color.BLACK);
+			LobbyGUI.this.setForeground(Color.WHITE);
 			
 			int panxy = PlayerDisplayPanel.GAP;
 			int xinc = PlayerDisplayPanel.WIDTH + PlayerDisplayPanel.GAP;
 			int yinc = PlayerDisplayPanel.HEIGHT + PlayerDisplayPanel.GAP;
 			playerPanelList = new ArrayList<>();
-			playerPanelList.add(new PlayerDisplayPanel(panxy, panxy, LobbyClient.this));
-			playerPanelList.add(new PlayerDisplayPanel(panxy + xinc, panxy, LobbyClient.this));
-			playerPanelList.add(new PlayerDisplayPanel(panxy, panxy + yinc, LobbyClient.this));
-			playerPanelList.add(new PlayerDisplayPanel(panxy + xinc, panxy + yinc, LobbyClient.this));
+			playerPanelList.add(new PlayerDisplayPanel(panxy, panxy, LobbyGUI.this));
+			playerPanelList.add(new PlayerDisplayPanel(panxy + xinc, panxy, LobbyGUI.this));
+			playerPanelList.add(new PlayerDisplayPanel(panxy, panxy + yinc, LobbyGUI.this));
+			playerPanelList.add(new PlayerDisplayPanel(panxy + xinc, panxy + yinc, LobbyGUI.this));
 
 			button_startGame = new JButton("Start Game");
 			button_startGame.addActionListener((e) -> onGameStartRequest());
