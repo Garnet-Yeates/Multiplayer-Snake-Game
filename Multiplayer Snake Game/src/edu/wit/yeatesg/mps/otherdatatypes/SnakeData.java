@@ -15,6 +15,7 @@ import edu.wit.yeatesg.mps.buffs.Fruit;
 import edu.wit.yeatesg.mps.buffs.HungryBuffDrawScript;
 import edu.wit.yeatesg.mps.network.clientserver.GameplayGUI;
 import edu.wit.yeatesg.mps.network.clientserver.Server.PlayerSlot;
+import edu.wit.yeatesg.mps.network.clientserver.Server.ReceiveFromClientThread;
 import edu.wit.yeatesg.mps.network.clientserver.SocketSecurityTool;
 import edu.wit.yeatesg.mps.network.packets.SnakeUpdatePacket;
 
@@ -82,7 +83,7 @@ public class SnakeData
 	{
 		SnakeData updated = pack.getClientData();
 
-		boolean initPointList = true;
+		boolean receivingPointList = true;
 
 		ArrayList<Field> fieldsToTransfer = ReflectionTools.getFieldsThatUpdate(SnakeData.class);
 		for (int i = 0; i < fieldsToTransfer.size(); i++)
@@ -92,20 +93,18 @@ public class SnakeData
 				Field f = fieldsToTransfer.get(i);
 				f.setAccessible(true);
 				Object updatedValue = f.get(updated);
-				if (!(f.getName().equals("pointList") && (updatedValue.toString() == "" || updatedValue.toString().equals("") || updatedValue.toString() == null))) 
-				{
-					f.set(this, updatedValue); 
-				}
+				if (f.getName().equals("pointList") && (updatedValue.toString().equals("")))
+					receivingPointList = false;
 				else
-					initPointList = false;				
+					f.set(this, updatedValue);		
 			}
 			catch (IllegalArgumentException | IllegalAccessException e)
 			{
 				e.printStackTrace();
 			}
 		}
-
-		if (!initPointList && isAlive) // Move the snake if the pointList is null (move it on the client for efficiency)
+		
+		if (!receivingPointList && isAlive) // Move the snake if the pointList is null (move it on the client for efficiency)
 		{
 			PointList pointList = this.pointList.clone(); 
 			Point oldHead = pointList.get(0);
@@ -252,6 +251,7 @@ public class SnakeData
 	private boolean $buffHungryActive;
 	private int $foodInBelly;
 	private PlayerSlot $playerSlot;
+	private ReceiveFromClientThread $threadForServer;
 
 	private Timer $removeBuffTimer;
 
@@ -325,6 +325,11 @@ public class SnakeData
 	{
 		$foodInBelly += byHowMuch;
 	}
+	
+	public int getFoodInBelly()
+	{
+		return $foodInBelly;
+	}
 
 	public void setDirectionBuffer(ArrayList<Direction> buffer)
 	{
@@ -386,6 +391,16 @@ public class SnakeData
 	{
 		return $playerSlot;
 	}
+	
+	public void setPacketReceiveThread(ReceiveFromClientThread receiveThread)
+	{
+		$threadForServer = receiveThread;
+	}
+	
+	public ReceiveFromClientThread getPacketReceiveThread()
+	{
+		return $threadForServer;
+	}
 
 	// Client side fields and methods, not updated when updateBasedOn(SnakeUpdatePacket pack) is called
 	// on the server side of this SnakeData, these fields will be null
@@ -396,7 +411,7 @@ public class SnakeData
 	public void setDrawScript(SnakeDrawScript script)
 	{
 		if (script == null)
-			throw new RuntimeException();
+			throw new IllegalArgumentException();
 		if ($currentDrawScript != null)
 			endBuffDrawScriptEarly();
 		$currentDrawScript = script;
@@ -412,7 +427,8 @@ public class SnakeData
 
 	public void endBuffDrawScriptEarly()
 	{
-		$currentDrawScript.endEarly();
+		if ($currentDrawScript != null)
+			$currentDrawScript.endEarly();
 	}
 
 	public boolean hasBuffDrawScript()
@@ -456,7 +472,7 @@ public class SnakeData
 		{
 			boolean drawingOnNotHungry = !drawingOn.getClient().hasHungryBuffDrawScript();
 			boolean drawingHead = index == 0;
-			boolean highlightableLocation = getLength() > Fruit.MIN_FRUIT_HUNGRY_LENGTH && index < getLength() - Fruit.MAX_BITE_OFF;
+			boolean highlightableLocation = getLength() > Fruit.COMPLEX_CHECK_MIN && index < getLength() - Fruit.MAX_BITE_OFF;
 			if (drawingSelf || drawingOnNotHungry || drawingHead || highlightableLocation)
 			{
 				Point drawCoords = GameplayGUI.getPixelCoords(segmentLoc);

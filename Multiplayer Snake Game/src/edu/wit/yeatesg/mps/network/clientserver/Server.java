@@ -11,6 +11,8 @@ import java.util.Random;
 import javax.swing.Timer;
 
 import edu.wit.yeatesg.mps.buffs.Fruit;
+import edu.wit.yeatesg.mps.network.clientserver.NetworkClient.NotConnectedException;
+import edu.wit.yeatesg.mps.network.clientserver.NetworkClient.SocketClosedException;
 import edu.wit.yeatesg.mps.network.packets.DirectionChangePacket;
 import edu.wit.yeatesg.mps.network.packets.FruitPickupPacket;
 import edu.wit.yeatesg.mps.network.packets.FruitSpawnPacket;
@@ -30,17 +32,6 @@ import edu.wit.yeatesg.mps.otherdatatypes.SnakeList;
 
 import static edu.wit.yeatesg.mps.network.clientserver.MultiplayerSnakeGame.*;
 
-/*
- * SYNCHRONIZATION LOGIC:
- * (1) SINCE ONRECEIVE() IS ABLE TO BE CALLED BY 4 DIFFERENT THREADS SIMULTANEOUSLY, IT IS OBVIOUS THAT IT
- * MUST BE SYNCHRONIZED BECAUSE THERE ARE MANY THREAD-UNSAFE THINGS THAT CAN BE OPERATED UPON AS A RESULT
- * OF ONRECEIVE() BEING CALLED
- * (2) SEND() SHOULD ALSO BE SYNCHRONIZED ON EACH INSTANCE BECAUSE WE WANT TO AVOID THE CASE WHERE PACKETS
- * ARE BEING ENCRYPTED (SENT) AND DECRYPTED (RECEIVED) AT THE SAME TIME
- * (3) ONATTEMPTCONNECT() IS ALSO SYNCHRONIZED BECAUSE IT CAN MODIFY (ADD) TO THE CONNECTED CLIENT LIST
- * AND WE DO NOT WANT THAT TO HAPPEN WHILE ANY OF THE OTHER 3 METHODS ARE BEING CALLED
- * (4) ONTICK() IS ALSO SYNCHRONIZED BECAUSE IT CALLS A PLETHORA OF OTHER THREAD-UNSAFE METHODS
- */
 
 /**
  * Synchronization Logic:
@@ -55,7 +46,7 @@ import static edu.wit.yeatesg.mps.network.clientserver.MultiplayerSnakeGame.*;
  * @author yeatesg
  *
  */
-public class Server implements Runnable 
+public class Server 
 {	
 	private ServerSocket ss;
 	private SocketSecurityTool serverDecrypter;
@@ -65,7 +56,7 @@ public class Server implements Runnable
 	public Server(int port) 
 	{
 		this.port = port;
-		serverDecrypter = new SocketSecurityTool(1024);
+		serverDecrypter = new SocketSecurityTool();
 	}
 
 	/**
@@ -73,71 +64,75 @@ public class Server implements Runnable
 	 * an exception, then the server will have successfully started and this method will return
 	 * true.
 	 * @return true if the server successfully started (no exception was thrown)
+	 * @throws IOException 
 	 */
-	public boolean start() 
+	public boolean start() throws ServerStartFailedException 
 	{
 		try
-		{
+		{	
 			ss = new ServerSocket(port);
 			open = true;
-			Thread startServerThread = new Thread(this);
-			startServerThread.setName("Start-Server-Thread");
-			startServerThread.start();
+			Thread acceptConnections = new AcceptConnectionsThread();
+			acceptConnections.setName("Start-Server-Thread");
+			acceptConnections.start();
 			return true;
-		} 
-		catch (Exception e) 
+		}
+		catch (IOException e)
 		{
-			e.printStackTrace();
-			return false;
+			throw new ServerStartFailedException("Couldn't create server");
 		}
 	}
 
-	/**
-	 * 
-	 */
-	@Override
-	public void run() 
+	public static class ServerStartFailedException extends Exception
 	{
-		while (open)
+		private static final long serialVersionUID = -8840417831600338886L;
+
+		private String message;
+
+		public ServerStartFailedException(String message)
 		{
-			try
-			{
-				final Socket s = ss.accept();
-				Thread acceptConnections = new Thread(() -> 
-				{
-					try 
-					{
-						DataInputStream in = new DataInputStream(s.getInputStream());
-						DataOutputStream out = new DataOutputStream(s.getOutputStream());
-						if (onAttemptConnect(s, in, out))
-						{
-							while (open)
-							{
-								byte[] bytes = new byte[in.readInt()];
-								in.read(bytes);
-								String received = serverDecrypter.decryptString(bytes);
-								onReceive(received);
-							}
-						} 
-						else
-							s.close();
-					} 
-					catch (Exception e) 
-					{	
-						System.out.println("Exception at Server.in.readUTF() -> " + e.getMessage());
-					}
-				});
-				acceptConnections.start();
-			} 
-			catch (Exception e)
-			{
-				e.printStackTrace();
-			}			
+			this.message = message;
+		}
+
+		@Override
+		public String getMessage()
+		{
+			return message;
 		}
 	}
 
-	private boolean gameStarted = false;
-
+	private SnakeList connectedClients = new SnakeList();
+	
+	private class AcceptConnectionsThread extends Thread
+	{
+		@Override
+		public void run() 
+		{
+			while (open)
+			{
+				try
+				{
+					final Socket s = ss.accept();
+					DataInputStream in = new DataInputStream(s.getInputStream());
+					DataOutputStream out = new DataOutputStream(s.getOutputStream());
+					String clientName;
+					if ((clientName = onAttemptConnect(s, in, out)) != null)
+					{
+						ReceiveFromClientThread receiveThread = new ReceiveFromClientThread(clientName, s, in, out);
+						connectedClients.get(clientName).setPacketReceiveThread(receiveThread);
+						receiveThread.start();
+					}
+					else
+						s.close();
+				} 
+				catch (IOException e)
+				{
+					System.out.println("[Server] IOException occured while waiting for a connection");
+				}			
+			}
+		}
+	}
+	
 	/**
 	 * This method is called right after the server socket accepts a connection from a new client. The protocol for
 	 * when a client attempts to connect to this server is that the client will send a SnakeUpdatePacket containing
@@ -148,14 +143,13 @@ public class Server implements Runnable
 	 * @param s the socket for the client that is trying to connect.
 	 * @param in the DataInputStream for this client, to receive packets.
 	 * @param out the DataOutputStream for this client, to send packets.
-	 * @return true if this client connected successfully
+	 * @return the client's name if this client connected successfully, or null if the connection was denied
 	 * @throws IOException if in.readUTF() throws an exception
 	 */
-	public synchronized boolean onAttemptConnect(Socket s, DataInputStream in, DataOutputStream out) throws IOException
+	public String onAttemptConnect(Socket s, DataInputStream in, DataOutputStream out) throws IOException
 	{
 		// Read request packet
-		byte[] bytes = new byte[in.readInt()]; in.read(bytes);
-		String rawUTF = new String(bytes);
+		String rawUTF = new String(NetworkClient.readByteSegments(in)[0]);
 		SnakeUpdatePacket clientRequestPacket = (SnakeUpdatePacket) Packet.parsePacket(rawUTF);
 		System.out.println("Server Received -> " + clientRequestPacket);
 
@@ -174,11 +168,11 @@ public class Server implements Runnable
 			System.out.println("Server -> CONNECTION ACCEPT" );
 			// Send "CONNECTION ACCEPT" response
 			send(responsePacket, newClient, false);
-			
 			// After client gets CONNECTION ACCEPT it sends its encryption key, so process key below
-			byte[] clientKey = new byte[in.readInt()]; in.read(clientKey);
+			byte[] clientKey = NetworkClient.readByteSegments(in)[0];
+			System.out.println("Server received clint key");
 			// Assign a separate AsymmetricEncryptionTool to this client to send encrypted packets to them
-			SocketSecurityTool clientEncrypter = new SocketSecurityTool(1024);
+			SocketSecurityTool clientEncrypter = new SocketSecurityTool();
 			newClient.setEncrypter(clientEncrypter);
 			clientEncrypter.setPartnerKey(clientKey);
 
@@ -187,13 +181,10 @@ public class Server implements Runnable
 
 			PlayerSlot emptySlot = slots.getNextEmptySlot();
 			emptySlot.bindClient(newClient);
-			
-			connectedClients.add(newClient);
-			
-			updateAllClients(true);
-	
 
-			return true;
+			connectedClients.add(newClient);	
+			updateAllClients(true);
+			return newClient.getClientName();
 		} 
 		else if (gameStarted)
 		{
@@ -208,11 +199,54 @@ public class Server implements Runnable
 			responsePacket.setMessage("NAME TAKEN");
 		}
 		send(responsePacket, newClient);
-		return false;
+		return null;
 	}
 
-	private SnakeList connectedClients = new SnakeList();
+	public class ReceiveFromClientThread extends Thread
+	{
+		private boolean receiving = true;
+		
+		private String clientName;
+		private Socket clientSocket;
+		private DataInputStream in;
+		private DataOutputStream out;
+		
+		public ReceiveFromClientThread(String clientName, Socket clientSocket, DataInputStream in, DataOutputStream out)
+		{
+			this.clientName = clientName;
+			this.clientSocket = clientSocket;
+			this.in = in;
+			this.out = out;
+		}
+		
+		@Override
+		public void run()
+		{
+			while (receiving)
+			{
+				try 
+				{
+					byte[][] blocks = NetworkClient.readByteSegments(in);
+					String received = serverDecrypter.decryptString(blocks);
+					onReceive(received);
+				}
+				catch (Exception e)
+				{
+					receiving = false;
+					e.printStackTrace();
+				}
+			}
+		}
+		
+		public void end()
+		{
+			receiving = false;
+		}
+	}
 
+	private boolean gameStarted = false;
+
+	
 	/**
 	 * Determines whether or not there is already a client on this server with the same name as the one given in
 	 * the parameter. Since clients are identified by their name, client equality is also determined based on
@@ -235,21 +269,27 @@ public class Server implements Runnable
 		return connectedClients.size() == 4;
 	}
 
+	/** Used to synchronize send() and onReceive() because we do not want any those methods running concurrently */
+	private final Object SEND_REC_LOCK = new Object();
+
 	/**
 	 * This method is used for when the Server is sending a packet to a single client. This method
 	 * sets the data stream of the packet to the data stream associated with the given client
 	 * @param p the Packet that is being sent from the server
 	 * @param to the Client that this packet is being sent to
 	 */
+	public void send(Packet p, SnakeData to, boolean encrypting)
+	{
+		synchronized (SEND_REC_LOCK)
+		{
+			p.setDataStream(to.getOutputStream());
+			p.write(encrypting ? to.getEncrypter() : null);
+		}
+	}
+
 	public void send(Packet p, SnakeData to)
 	{
 		send(p, to, true);
-	}
-
-	public synchronized void send(Packet p, SnakeData to, boolean encrypting)
-	{
-		p.setDataStream(to.getOutputStream());
-		p.write(encrypting ? to.getEncrypter() : null);
 	}
 
 	public void sendToAll(Packet p)
@@ -268,20 +308,23 @@ public class Server implements Runnable
 	 * methods in the server that interact with other threads, so they are the only two that should be synchronized)
 	 * @param data the raw UTF data received from the client socket on another thread
 	 */
-	public synchronized void onReceive(String data) 
+	public void onReceive(String data) 
 	{
-		Packet packetReceiving = Packet.parsePacket(data);
-		switch (packetReceiving.getClass().getSimpleName())
+		synchronized (SEND_REC_LOCK)
 		{
-		case "MessagePacket":
-			onReceiveMessagePacket((MessagePacket) packetReceiving);
-			break;
-		case "SnakeUpdatePacket":
-			onReceiveClientDataUpdate((SnakeUpdatePacket) packetReceiving);
-			break;
-		case "DirectionChangePacket":
-			onReceiveClientDirectionChangeRequest((DirectionChangePacket) packetReceiving);
-			break;
+			Packet packetReceiving = Packet.parsePacket(data);
+			switch (packetReceiving.getClass().getSimpleName())
+			{
+			case "MessagePacket":
+				onReceiveMessagePacket((MessagePacket) packetReceiving);
+				break;
+			case "SnakeUpdatePacket":
+				onReceiveClientDataUpdate((SnakeUpdatePacket) packetReceiving);
+				break;
+			case "DirectionChangePacket":
+				onReceiveClientDirectionChangeRequest((DirectionChangePacket) packetReceiving);
+				break;
+			}
 		}
 	}
 
@@ -319,7 +362,7 @@ public class Server implements Runnable
 		{
 			MessagePacket response = new MessagePacket(quitter.getClientName(), "YOU EXIT");
 			send(response, quitter);
-			
+
 			quitter.getPlayerSlot().unbindClient();
 
 			closeConnection(quitter);			
@@ -399,7 +442,7 @@ public class Server implements Runnable
 	 * is called in a different thread, both of these methods are synchronized so that there won't be any
 	 * ConcurrentModificationException thrown as a result of 2 or more threads looping through {@link #connectedClients}
 	 */
-	private synchronized void onTick()
+	private void onTick()
 	{
 		doSnakeMovements();
 		updateAllClients(false);
@@ -411,8 +454,8 @@ public class Server implements Runnable
 	{		
 		HashMap<SnakeData, Point> oldTailLocations = new HashMap<>();
 
-		//		Move each snake forward by one, store old tail location in HashMap. This is in a separate loop because ALL client
-		//		positions must be updated before doing collision checks
+		// Move each snake forward by one, store old tail location in HashMap. This is in a separate loop because ALL client
+		// positions must be updated before doing collision checks
 		for (SnakeData aClient : connectedClients)
 		{
 			if (aClient.isAlive())
@@ -434,20 +477,20 @@ public class Server implements Runnable
 			}
 		}
 
-		//		Handle collision, fruit pickup/spawning, segment adding
-		for (SnakeData aClient : connectedClients)
+		// Handle collision, fruit pickup/spawning, segment adding
+		for (SnakeData thisSnake : connectedClients)
 		{
-			if (aClient.isAlive())
+			if (thisSnake.isAlive())
 			{
-				Point head = aClient.getPointList(false).get(0);
+				Point head = thisSnake.getPointList(false).get(0);
 				boolean colliding = false;
 				SnakeList otherClients = new SnakeList();
 				for (SnakeData bClient : connectedClients)
-					if (!bClient.equals(aClient) && bClient.isAlive()) // Collision upon dead snakes does not occur
+					if (!bClient.equals(thisSnake) && bClient.isAlive()) // Collision upon dead snakes does not occur
 						otherClients.add(bClient);
 
-				//				If this Snake's head location intercepts any segment on any OTHER snake, it counts as a collision
-				SnakeData interceptingSnake = aClient;
+				// If this Snake's head location intercepts any segment on any OTHER snake, it counts as a collision
+				SnakeData interceptingSnake = thisSnake;
 				int interceptingIndex = -1;
 				for (SnakeData otherClient : otherClients)
 				{
@@ -459,33 +502,51 @@ public class Server implements Runnable
 					}
 				}
 
-				int headOccurance = aClient.getOccurrenceOf(head);
-				//				If this Snake's head location intercepts any of its own body segments more than once, it counts as a collision
-				colliding = headOccurance > 2 || headOccurance > 1 && aClient.hasBuffHungry() ? true : colliding;
+				int headOccurance = thisSnake.getOccurrenceOf(head);
+				// If this Snake's head location intercepts any of its own body segments more than once, it counts as a collision
+				colliding = headOccurance > 2 || headOccurance > 1 && thisSnake.hasBuffHungry() ? true : colliding;
 
-				//				Set colliding to false if this Snake currently has the Translucent buff
-				colliding = aClient.hasBuffTranslucent() ? false : colliding;
+				// Set colliding to false if this Snake currently has the Translucent buff
+				colliding = thisSnake.hasBuffTranslucent() ? false : colliding;
 
-				//				Special collision case if the user has the Hungry buff, which allows them to eat small portions of other snakes
-				if (colliding && aClient.hasBuffHungry())
+				// Special collision case if the user has the Hungry buff, which allows them to eat small portions of other snakes
+				if (colliding && thisSnake.hasBuffHungry())
 				{
+					System.out.println("Collided but has hungry buffy");
 					colliding = false;
-					if (interceptingSnake == aClient)
-						interceptingIndex = Server.getInterceptingIndexSpecificSnake(head, aClient);
+					if (interceptingSnake == thisSnake)
+						interceptingIndex = Server.getInterceptingIndexSpecificSnake(head, thisSnake);
 
 					int howManyBitOff = interceptingSnake.getLength() - interceptingIndex;
-					if ((interceptingIndex != 0 && (interceptingSnake.getLength() < Fruit.MIN_FRUIT_HUNGRY_LENGTH || howManyBitOff <= Fruit.MAX_BITE_OFF)) || interceptingSnake == aClient)
+					System.out.println("howManyBitOff = " + howManyBitOff);
+
+					boolean selfBite = interceptingSnake.equals(thisSnake);
+					System.out.println("selfBite = " + selfBite);
+
+					// You cannot hit an enemy Snake's head, even if you have the hungry buff
+					boolean notInterceptingHead = interceptingIndex != 0;
+					System.out.println("notInterceptingHead = " + notInterceptingHead);
+
+					// If this boolean is true, the intercepting snake is short enough that they can get bit at any non-head index
+					boolean shortEnough = interceptingSnake.getLength() < Fruit.COMPLEX_CHECK_MIN;
+					System.out.println("shortEnough = " + shortEnough);
+
+					boolean didntBiteTooMuch = howManyBitOff <= Fruit.MAX_BITE_OFF;
+					System.out.println("dintBiteTooMuch = " + didntBiteTooMuch);
+
+					if (notInterceptingHead && (selfBite || shortEnough || didntBiteTooMuch))
 					{
 						int length = interceptingSnake.getLength();
 						PointList clone = interceptingSnake.getPointList(true);
-						for (int i = length - 1; i >= interceptingIndex; clone.remove(i), i--);
+						PointList bitOff = new PointList();
+						for (int i = length - 1; i >= interceptingIndex; bitOff.add(clone.get(i)), clone.remove(i), i--);
 						interceptingSnake.setPointList(clone);
-						if (interceptingSnake != aClient)
-							aClient.modifyFoodInBelly(howManyBitOff);
-						aClient.removeHungryBuffEarly();
-						if (!interceptingSnake.equals(aClient))
-							interceptingSnake.removeAllBuffsEarly();
-						SnakeBitePacket snakeBite = new SnakeBitePacket(aClient.getClientName(), interceptingSnake.getClientName(), howManyBitOff, interceptingIndex);
+						thisSnake.modifyFoodInBelly(howManyBitOff);
+						interceptingSnake.modifyFoodInBelly(-1*interceptingSnake.getFoodInBelly());
+						thisSnake.removeHungryBuffEarly();
+						interceptingSnake.removeAllBuffsEarly();
+						sendPointListNextUpdate();
+						SnakeBitePacket snakeBite = new SnakeBitePacket(thisSnake.getClientName(), interceptingSnake.getClientName(), bitOff);
 						sendToAll(snakeBite);
 					}
 					else // Bit off more than they can chew
@@ -494,62 +555,75 @@ public class Server implements Runnable
 					}
 				}
 
-				aClient.setIsAlive(!colliding);			
+				thisSnake.setIsAlive(!colliding);			
 
-				//				If client still alive, handle other stuff such as adding segments and picking up fruit
-				if (aClient.isAlive())
+				// If client still alive, handle other stuff such as adding segments and picking up fruit
+				if (thisSnake.isAlive())
 				{
-					//					Handle fruit pickup and the subsequent fruit spawning
+					// Handle fruit pickup and the subsequent fruit spawning
 					if (hasInterceptingFruit(head))
 					{
 						Fruit pickingUp = getInterceptingFruit(head);
-						if (!pickingUp.hasAssociatedBuff() || !aClient.hasAnyBuffs())
+						if (!pickingUp.hasAssociatedBuff() || !thisSnake.hasAnyBuffs())
 						{
-							//							Remove this fruit from the fruit list, and add its segment value to snake belly
+							// Remove this fruit from the fruit list, and add its segment value to snake belly
 							allFruit.remove(pickingUp);
 							int fruitValue = pickingUp.getFruitType().getNumSegmentsGiven();
-							aClient.modifyFoodInBelly(fruitValue);
+							thisSnake.modifyFoodInBelly(fruitValue);
 
-							//							Inform all clients that a player picked up a fruit so the Fruit is no longer drawn
-							FruitPickupPacket pack = new FruitPickupPacket(aClient.getClientName(), pickingUp);
+							// Inform all clients that a player picked up a fruit so the Fruit is no longer drawn
+							FruitPickupPacket pack = new FruitPickupPacket(thisSnake.getClientName(), pickingUp);
 							sendToAll(pack); 
 
-							//							If this fruit has an associated buff, grant it to the player
+							// If this fruit has an associated buff, grant it to the player
 							if (pickingUp.hasAssociatedBuff())
-								aClient.grantBuff(pickingUp.getAssociatedBuff());
+								thisSnake.grantBuff(pickingUp.getAssociatedBuff());
 
-							//							Spawn in a new Fruit somewhere else, send a FruitSpawnPacket to all clients
+							// Spawn in a new Fruit somewhere else, send a FruitSpawnPacket to all clients
 							spawnRandomFruit();	
 						}	
 					}
 
-					//					Handle the snake adding more segments as a result of recently eating a Fruit
-					if (aClient.hasFoodInBelly())
+					// Handle the snake adding more segments as a result of recently eating a Fruit
+					if (thisSnake.hasFoodInBelly())
 					{
-						Point addSegmentHere = oldTailLocations.get(aClient);
-						aClient.addToPointList(addSegmentHere);
-						aClient.modifyFoodInBelly(-1);
-						aClient.setAddingSegment(true);
+						Point addSegmentHere = oldTailLocations.get(thisSnake);
+						thisSnake.addToPointList(addSegmentHere);
+						thisSnake.modifyFoodInBelly(-1);
+						thisSnake.setAddingSegment(true);
 					}
 					else
-						aClient.setAddingSegment(false);
+						thisSnake.setAddingSegment(false);
 				}
 				else
 				{
-					//					Collision occurred and the client is now dead, so send a SnakeDeathPacket
-					SnakeDeathPacket snakeDeathPack = new SnakeDeathPacket(aClient.getClientName());
+					// Collision occurred and the client is now dead, so send a SnakeDeathPacket
+					SnakeDeathPacket snakeDeathPack = new SnakeDeathPacket(thisSnake.getClientName());
 					sendToAll(snakeDeathPack);
 				}
 			}
 		}
 	}
+	
+	private boolean forceSendPointList = false;
 
-	private void updateAllClients(boolean sendingPointList)
+	private void sendPointListNextUpdate()
 	{
+		forceSendPointList = true;
+	}
+	
+	private void updateAllClients(boolean sendPointList)
+	{
+		if (forceSendPointList == true)
+		{
+			forceSendPointList = false;
+			sendPointList = true;
+		}
+		
 		for (SnakeData client : connectedClients)
 		{
-			String[] dontUpdate = sendingPointList ? new String[0] : new String[] { "pointList" }; 
-			SnakeData clientClone = new SnakeData(ReflectionTools.fieldsToString(SnakeData.REGEX, client, SnakeData.class, dontUpdate));
+			String[] excluding = sendPointList ? null : new String[] { "pointList" };
+			SnakeData clientClone = new SnakeData(ReflectionTools.fieldsToString(SnakeData.REGEX, client, SnakeData.class, excluding));
 			SnakeUpdatePacket updatePack = new SnakeUpdatePacket(clientClone);
 			sendToAll(updatePack);
 		}	
@@ -564,7 +638,7 @@ public class Server implements Runnable
 		Fruit addedFruit = null;
 		while (!spawned)
 		{
-			//			If we have greater than a 1/20 chance of random spawning one, do this
+			// If we have greater than a 1/20 chance of random spawning one, do this
 			if (getPercentCovered() < 0.95)
 			{
 				int randX = rand.nextInt(NUM_HORIZONTAL_UNITS);
@@ -576,7 +650,7 @@ public class Server implements Runnable
 					spawned = true;
 				}
 			}
-			//		    If >95% of the map is covered, it is probably more efficient to just loop through a list of available spaces and choose a random index
+			// If >95% of the map is covered, it is probably more efficient to just loop through a list of available spaces and choose a random index
 			else if (getPercentCovered() < 1)
 			{
 				ArrayList<Point> availableLocations = new ArrayList<>();
@@ -709,6 +783,7 @@ public class Server implements Runnable
 	 */
 	private void closeConnection(SnakeData exiting)
 	{
+		exiting.getPacketReceiveThread().end();
 		try
 		{
 			exiting.getSocket().close();
@@ -782,17 +857,17 @@ public class Server implements Runnable
 		{
 			return connectedPlayer == null;
 		}
-		
+
 		public Color getSlotColor()
 		{
 			return MultiplayerSnakeGame.getColorFromSlotNum(slotNum);
 		}
-		
+
 		public PointList getStartPointList()
 		{
 			return MultiplayerSnakeGame.getStartPointListFromSlotNum(slotNum);
 		}
-		
+
 		public Direction getStartDirection()
 		{
 			return MultiplayerSnakeGame.getStartDirectionFromSlotNum(slotNum);
@@ -815,7 +890,7 @@ public class Server implements Runnable
 					return slot;
 			return null;
 		}
-		
+
 		public ArrayList<PlayerSlot> getOccupiedSlots()
 		{
 			ArrayList<PlayerSlot> occupiedSlots = new ArrayList<>();
@@ -825,7 +900,7 @@ public class Server implements Runnable
 			return occupiedSlots;
 		}
 	}
-	
+
 	private void rollBackClients()
 	{
 		for (PlayerSlot slot : slots.getOccupiedSlots())

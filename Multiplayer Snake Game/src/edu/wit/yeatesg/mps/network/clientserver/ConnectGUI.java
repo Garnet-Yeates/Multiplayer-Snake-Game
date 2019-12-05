@@ -15,6 +15,11 @@ import javax.swing.UIManager;
 import javax.swing.UIManager.LookAndFeelInfo;
 import javax.swing.border.EmptyBorder;
 
+import edu.wit.yeatesg.mps.network.clientserver.NetworkClient.ActiveGameException;
+import edu.wit.yeatesg.mps.network.clientserver.NetworkClient.ConnectionFailedException;
+import edu.wit.yeatesg.mps.network.clientserver.NetworkClient.DuplicateNameException;
+import edu.wit.yeatesg.mps.network.clientserver.NetworkClient.ServerFullException;
+import edu.wit.yeatesg.mps.network.clientserver.Server.ServerStartFailedException;
 import edu.wit.yeatesg.mps.network.packets.Packet;
 
 import static edu.wit.yeatesg.mps.network.clientserver.MultiplayerSnakeGame.*;
@@ -58,21 +63,20 @@ public class ConnectGUI extends JPanel
 		try
 		{	
 			try { Integer.parseInt(field_port.getText()); }
-			catch (Exception e) {  throw new RuntimeException("Invalid Port"); }
+			catch (NumberFormatException e) {  throw new InvalidInputException("Invalid Port"); }
 
 			if (!field_ip.getText().equals("localhost") && !field_ip.getText().contains("."))
-				throw new RuntimeException("Invalid IP Address");
+				throw new InvalidInputException("Invalid IP Address");
 
 			if (!GameplayGUI.validName(field_name.getText()))
-				throw new RuntimeException("Invalid Client Name");
+				throw new InvalidInputException("Invalid Client Name");
 
 			int port = Integer.parseInt(field_port.getText());
 
 			server = isHost ? (server == null ? new Server(port) : server) : null;		
 			
 			if (server != null) // This client wants to host the game
-				if (!server.start())
-					throw new RuntimeException("Couldn't create server");				
+				server.start();
 			
 			internalClient.setName(field_name.getText());
 			
@@ -81,7 +85,7 @@ public class ConnectGUI extends JPanel
 			if (internalClient.attemptConnect(field_ip.getText(), port, isHost))
 				frame.dispose();
 		}
-		catch (Exception e)
+		catch (ServerStartFailedException | InvalidInputException | ConnectionFailedException | ServerFullException | ActiveGameException | DuplicateNameException e)
 		{
 			server = null;
 			label_statusMessage.setForeground(Color.RED); // We ran into some error on the way, print the error message
@@ -90,10 +94,31 @@ public class ConnectGUI extends JPanel
 		btn_Host.setEnabled(true);
 	}
 	
+	/**
+	 * Checked exception for when the user input in one of the text fields of the ConnectGUI is invalid
+	 * (i.e they typed a String for the port, or their name is invalid)
+	 * @author yeatesg
+	 */
+	private static class InvalidInputException extends Exception
+	{
+		private static final long serialVersionUID = 8969837391732888398L;
+		
+		private String message;
+		
+		private InvalidInputException(String message)
+		{
+			this.message = message;
+		}
+		
+		@Override
+		public String getMessage()
+		{
+			return message;
+		}
+	}
+	
 	private int numPacketsSent;
-	
-	public void onPacketReceive(Packet pack) { } 
-	
+		
 	private JTextField field_ip;
 	private JTextField field_port;
 	private JTextField field_name;

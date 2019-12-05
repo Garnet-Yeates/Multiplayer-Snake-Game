@@ -46,9 +46,9 @@ public class GameplayGUI extends JPanel implements ClientListener, KeyListener, 
 
 	public static final int WIDTH = MultiplayerSnakeGame.WIDTH;
 	public static final int HEIGHT = MultiplayerSnakeGame.HEIGHT;
-	
+
 	private NetworkClient networkClient;
-	
+
 	public GameplayGUI(NetworkClient networkClient, SnakeData thisClient, SnakeList allClients)
 	{
 		this.thisClient = thisClient;
@@ -58,14 +58,9 @@ public class GameplayGUI extends JPanel implements ClientListener, KeyListener, 
 		networkClient.setListener(this);
 		new GameplayFrame();
 	}
-	
-	private synchronized void send(Packet p)
-	{
-		networkClient.send(p);
-	}	
-	
+
 	@Override
-	public synchronized void onAutoReceive(String data)
+	public void onAutoReceive(String data)
 	{
 		Packet packetReceiving = Packet.parsePacket(data);
 
@@ -129,6 +124,7 @@ public class GameplayGUI extends JPanel implements ClientListener, KeyListener, 
 	private void onReceiveFruitPickupPacket(FruitPickupPacket packetReceiving)
 	{
 		Fruit theFruit = packetReceiving.getFruit();
+
 		SnakeData whoPickedUp = allClients.get(packetReceiving.getWhoPickedUp());
 		fruitList.remove(packetReceiving.getFruit());
 		if (theFruit.hasAssociatedBuff())
@@ -147,14 +143,10 @@ public class GameplayGUI extends JPanel implements ClientListener, KeyListener, 
 	private void onSnakeBitePacketReceive(SnakeBitePacket packetReceiving)
 	{
 		SnakeData bitten = allClients.get(packetReceiving.getBitten());
-		SnakeData biter = allClients.get(packetReceiving.getBiting());
-		biter.endBuffDrawScriptEarly();
-		int interceptingIndex = packetReceiving.getInterceptingIndex();
-		PointList bittenPointListClone = bitten.getPointList(true);
-		PointList bitOff = new PointList();
-		for (int i = bittenPointListClone.size() - 1; i >= interceptingIndex; bitOff.add(bittenPointListClone.get(i)), bittenPointListClone.remove(i), i--);
-		bitten.setPointList(bittenPointListClone);
-		//	bitten.setPointList(bittenPointListRef);
+		SnakeData bitBy = allClients.get(packetReceiving.getBiting());
+		bitBy.endBuffDrawScriptEarly();
+		bitten.endBuffDrawScriptEarly();
+		PointList bitOff = packetReceiving.getBitOff();
 		new SnakeBiteDrawScript(this, bitten, bitOff);
 	}
 
@@ -181,10 +173,7 @@ public class GameplayGUI extends JPanel implements ClientListener, KeyListener, 
 		removeTimer.setRepeats(false);
 		removeTimer.addActionListener((e) ->
 		{
-			synchronized (GameplayGUI.this)
-			{
-				allClients.remove(leaver);
-			}
+			allClients.remove(leaver);
 		});
 
 		removeTimer.start();
@@ -199,21 +188,30 @@ public class GameplayGUI extends JPanel implements ClientListener, KeyListener, 
 
 	public void onServerTick()
 	{
-		repaint();
-		for (TickListener listener : tickListeners)
-			listener.onReceiveTick();
+		synchronized (tickListeners)
+		{
+			repaint();
+			for (TickListener listener : tickListeners)
+				listener.onReceiveTick();
+		}
 	}
 
 	// Synchronized because these methods are called by timer threads in SnakeDrawScript if two scripts start at once, cmod will happen
-	public synchronized void addTickListener(TickListener listener)
+	public void addTickListener(TickListener listener)
 	{
-		tickListeners.add(listener);
+		synchronized (tickListeners)
+		{
+			tickListeners.add(listener);
+		}
 	}
 
 	// Synchronized because these methods are called by timer threads in SnakeDrawScript if two scripts end at once, cmod will happen
-	public synchronized void removeTickListener(TickListener beingRemoved)
+	public void removeTickListener(TickListener beingRemoved)
 	{
-		tickListeners.remove(beingRemoved);
+		synchronized (tickListeners)
+		{
+			tickListeners.remove(beingRemoved);
+		}
 	}
 
 	class GameStartDrawScript extends Timer implements ActionListener
@@ -283,7 +281,7 @@ public class GameplayGUI extends JPanel implements ClientListener, KeyListener, 
 	// modifications to the allClients list, which is the only thread-unsafe thing we are
 	// dealing with
 	@Override
-	protected synchronized void paintComponent(Graphics g)
+	protected void paintComponent(Graphics g)
 	{
 		super.paintComponent(g);
 
@@ -341,7 +339,7 @@ public class GameplayGUI extends JPanel implements ClientListener, KeyListener, 
 	 */
 	public SnakeList getAllClients()
 	{
-		return allClients.clone();
+		return allClients.clone();	
 	}
 
 	@Override
@@ -351,7 +349,7 @@ public class GameplayGUI extends JPanel implements ClientListener, KeyListener, 
 		{
 			Direction entered = Direction.fromKeyCode(e.getKeyCode());
 			DirectionChangePacket pack = new DirectionChangePacket(thisClient.getClientName(), entered);
-			send(pack);
+			networkClient.send(pack);
 		}
 	}
 
@@ -365,9 +363,9 @@ public class GameplayGUI extends JPanel implements ClientListener, KeyListener, 
 	public void windowClosing(WindowEvent e)
 	{
 		MessagePacket exitPack = new MessagePacket(thisClient.getClientName(), "I EXIT");
-		send(exitPack);
+		networkClient.send(exitPack);
 	}
-	
+
 	@Override
 	public void windowActivated(WindowEvent arg0) { }
 
@@ -393,6 +391,7 @@ public class GameplayGUI extends JPanel implements ClientListener, KeyListener, 
 				!text.contains("NULL") &&
 				!text.contains(PointList.REGEX) &&
 				!(text.length() > MAX_NAME_LENGTH) &&
+				!(text.length() < 2) &&
 				!text.contains(Packet.REGEX) &&
 				!text.contains(SnakeData.REGEX) &&
 				!text.contains(SnakeList.REGEX) &&
@@ -400,6 +399,7 @@ public class GameplayGUI extends JPanel implements ClientListener, KeyListener, 
 				!text.contains(Fruit.REGEX) &&
 				!text.contains(Vector.REGEX) &&
 				!text.equals("");
+				
 	}
 
 	public static Point keepInBounds(Point head)
@@ -417,7 +417,7 @@ public class GameplayGUI extends JPanel implements ClientListener, KeyListener, 
 	}
 
 	// Frame
-	
+
 	public class GameplayFrame extends JFrame
 	{	
 		private static final long serialVersionUID = -1155890718213904522L;

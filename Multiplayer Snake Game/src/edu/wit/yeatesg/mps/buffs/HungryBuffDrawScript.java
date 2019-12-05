@@ -20,7 +20,7 @@ public class HungryBuffDrawScript extends SnakeDrawScript implements TickListene
 	/** This will be true if the client who is connected to {@link SnakeDrawScript#drawingOn} is equal to {@link SnakeDrawScript#beingDrawn}*/
 	private boolean drawingSelf;
 	private Color[] highlightColorAssigner;
-	public static final int HIGHLIGHT_ANIMATION_RATE = 3;
+	public static final double HIGHLIGHT_ANIMATION_RATE = 2;
 	private int highlightColIndex = 0;
 	
 	public HungryBuffDrawScript(GameplayGUI container, SnakeData who, long duration)
@@ -89,7 +89,7 @@ public class HungryBuffDrawScript extends SnakeDrawScript implements TickListene
 					if (drawingSelf
 						|| !drawingOn.getClient().hasHungryBuffDrawScript()
 						|| sIndex == 0
-						|| beingDrawn.getLength() > Fruit.MIN_FRUIT_HUNGRY_LENGTH && sIndex < beingDrawn.getLength() - Fruit.MAX_BITE_OFF)									
+						|| beingDrawn.getLength() > Fruit.COMPLEX_CHECK_MIN && sIndex < beingDrawn.getLength() - Fruit.MAX_BITE_OFF)									
 					{
 						Color drawCol = snakeColorAssigner[cIndex];
 						cIndex = (cIndex + 1) % snakeColorAssigner.length;
@@ -131,7 +131,7 @@ public class HungryBuffDrawScript extends SnakeDrawScript implements TickListene
 						
 //						Assign the highlight color. If the highlight color is black and the buff is about to end, stop displaying the highlight
 						Color highlightCol = highlightColorAssigner[highlightColIndex];
-						if (progress > 0.80 && highlightCol.equals(Color.BLACK))
+						if (progress >= 0.9 && highlightCol.equals(Color.BLACK))
 							highlightOthers = false;
 						g2.setColor(highlightCol);
 

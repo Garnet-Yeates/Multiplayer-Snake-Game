@@ -13,6 +13,8 @@ import edu.wit.yeatesg.mps.network.packets.Packet;
 import edu.wit.yeatesg.mps.network.packets.SnakeUpdatePacket;
 import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
 
+import static edu.wit.yeatesg.mps.network.clientserver.SocketSecurityTool.*;
+
 /**
  * The NetworkClient object is meant to be used as an 'internal' client inside of the GUI windows to allow them to
  * interact with a server. Its purpose is to connect to a server according to some hard coded protocol (for example
@@ -48,7 +50,7 @@ public class NetworkClient
 	 */
 	public NetworkClient(String name)
 	{
-		encrypter = new SocketSecurityTool(1024);
+		encrypter = new SocketSecurityTool();
 		this.identification = name;
 	}
 
@@ -73,7 +75,7 @@ public class NetworkClient
 	 * @return true if the connection was successful
 	 * @throws RuntimeException as an error message that is sent to the ConnectClient to inform the user of the connection failure. 
 	 */
-	public boolean attemptConnect(String serverIP, int serverPort, boolean isHost) throws ServerFullException, ActiveGameException, DuplicateNameException
+	public boolean attemptConnect(String serverIP, int serverPort, boolean isHost) throws ConnectionFailedException, ServerFullException, ActiveGameException, DuplicateNameException
 	{
 		try
 		{
@@ -87,7 +89,7 @@ public class NetworkClient
 
 			SnakeUpdatePacket request = new SnakeUpdatePacket(thisClientsData);
 			request.setDataStream(out);
-			request.write(null);
+			send(request);
 
 			String data = manualReceiveString();
 			MessagePacket resp = (MessagePacket) Packet.parsePacket(data);
@@ -98,6 +100,7 @@ public class NetworkClient
 				encrypter.sendPublicKey(out);
 
 				byte[] serverKey = manualReceiveBytes();
+
 				encrypter.setPartnerKey(serverKey);
 
 				enableEncryptedMode();
@@ -118,6 +121,80 @@ public class NetworkClient
 		{
 			String message = e instanceof UnknownHostException ? "Unknown Host" : "Connection Refused";
 			throw new ConnectionFailedException(message);
+		}
+	}
+	
+	// Checked exceptions for attemptConnect(ip, port, isHost) are below
+	
+	/**
+	 * This exception is thrown when {@link NetworkClient#attemptConnect(String, int, boolean)} is unable to connect to
+	 * the server because either an UnknownHostException or an IOException.
+	 * @author yeatesg
+	 */
+	public static class ConnectionFailedException extends Exception
+	{
+		private static final long serialVersionUID = 4938204820624938277L;
+
+		private String message;
+
+		public ConnectionFailedException(String message)
+		{
+			this.message = message;
+		}
+
+		@Override
+		public String getMessage()
+		{
+			return message;
+		}
+	}
+	
+	/**
+	 * This exception is thrown in the case where this NetworkClient was able to connect to a server, but the server
+	 * denied the connection request because there was already a connected client with the same name.
+	 * @author yeatesg
+	 */
+	public static class DuplicateNameException extends Exception
+	{
+		private static final long serialVersionUID = 1485720276290184742L;
+
+		@Override
+		public String getMessage()
+		{
+			return "Your name is taken";
+		}
+	}
+	
+	/**
+	 * This exception is thrown in the case where this NetworkClient was able to connect to a server, but the server
+	 * denied the connection request because the server is full.
+	 * @author yeatesg
+	 */
+	public static class ServerFullException extends Exception
+	{
+		private static final long serialVersionUID = 3948558930285749302L;
+
+		@Override
+		public String getMessage()
+		{
+			return "Server is full";
+		}
+	}
+	
+	/**
+	 * Checked exception that must be dealt with 
+	 * This exception is thrown in the case where this NetworkClient was able to connect to a server, but the server
+	 * denied the connection request because a game is currently active.
+	 * @author yeatesg
+	 */
+	public static class ActiveGameException extends Exception
+	{
+		private static final long serialVersionUID = 9011662670694108221L;
+
+		@Override
+		public String getMessage()
+		{
+			return "Game already started";
 		}
 	}
 
@@ -144,56 +221,10 @@ public class NetworkClient
 		encryptedMode = false;
 	}
 
-	/**
-	 * Manually receives the next array of bytes that is received by {@link #in} from the Socket that this
-	 * Client is connected to. When calling this method, keep in mind that the program is assuming that:<br>
-	 * a) The ServerSocket is going to first send an integer representing the size of the array of bytes<br>
-	 * b) The ServerSocket is going to next send the array of bytes<br>
-	 * c) Whether it is expecting encrypted information is equivalent to the value of {@link #encryptedMode}
-	 * @return the next byte[] array that was sent by the connected DataInputStream, or null if either of the
-	 * above conditions are not met
-	 */
-	public byte[] manualReceiveBytes() throws NotConnectedException, SocketClosedException
-	{
-		try
-		{
-			byte[] bytes = new byte[in.readInt()];
-			in.read(bytes);
-			byte[] received = encryptedMode ? encrypter.decryptBytes(bytes) : bytes;
-			return received;
-		}
-		catch (NullPointerException e) // Only catch the IOException, if a DecryptionFailedException is thrown, I coded something wrong and the program will crash
-		{ 
-			throw new NotConnectedException();
-		}
-		catch (IOException e)
-		{
-			throw new SocketClosedException();
-		}
-	}
-
-	/**
-	 * Manually receives the next String that is received by {@link #in} from the Socket that this
-	 * Client is connected to. When calling this method, keep in mind that the program is assuming that:<br>
-	 * a) The ServerSocket is going to first send an integer representing the size of the array of bytes of this string<br>
-	 * b) The ServerSocket is going to next send the array of bytes created from {@link String#getBytes()} <br>
-	 * c) Whether it is expecting encrypted information is equivalent to the value of {@link #encryptedMode}
-	 * @return the next byte[] array that was sent by the connected DataInputStream, or null if either of the
-	 * above conditions are not met
-	 * @throws BadPaddingException 
-	 * @throws IllegalBlockSizeException 
-	 * @throws InvalidKeyException 
-	 * @see {@link Server} to see the protocol from the server-side
-	 */
-	public String manualReceiveString() 
-	{
-		byte[] stringBytes = manualReceiveBytes();
-		String received = encryptedMode ? encrypter.decryptString(stringBytes) : new String(stringBytes);
-		return received;
-	}
-
 	private PacketReceiveThread packetReceiveThread;
 
+	private final Object SEND_RECEIVE_LOCK = new Object();
+	
 	/**
 	 * This class defines a separate thread that uses a loop to automatically receive packets from {@link #in} and send them
 	 * to this NetworkClient's {@link #listener}. Whenever {@link #startAutoReceiving()} is called, a new PacketReceiveThread
@@ -202,7 +233,7 @@ public class NetworkClient
 	 * will end.
 	 * @author yeatesg
 	 */
-	private class PacketReceiveThread extends Thread implements Runnable
+	private class PacketReceiveThread extends Thread
 	{
 		private boolean active = true;
 
@@ -213,11 +244,8 @@ public class NetworkClient
 			{
 				try
 				{
-					byte[] bytes = new byte[in.readInt()]; in.read(bytes);
-					String received = encryptedMode ? encrypter.decryptString(bytes) : new String(bytes);
-			//		System.out.println("\nEncrypted Data:\n " + new String(bytes));
-		    //	    System.out.println("Decrypted Data:\n" + received + "\n");
-					listener.onAutoReceive(received);
+					String received = manualReceiveString();
+					synchronized (SEND_RECEIVE_LOCK) { listener.onAutoReceive(received); }
 				}
 				catch (NullPointerException e)
 				{
@@ -226,10 +254,6 @@ public class NetworkClient
 					else if (in == null)
 						throw new NotConnectedException();
 				}
-				catch (IOException e)
-				{
-					throw new SocketClosedException();
-				}
 			}
 		}
 
@@ -237,6 +261,17 @@ public class NetworkClient
 		{
 			this.active = active;
 		}
+	}
+	
+	/**
+	 * Sets this NetworkClient's {@link #listener} to the given listener. When packets are automatically
+	 * received from a {@link PacketReceiveThread}, {@link ClientListener#onAutoReceive(String)} is called
+	 * on the current {@link #listener}.
+	 * @param newListener
+	 */
+	public void setListener(ClientListener newListener)
+	{
+		listener = newListener;
 	}
 
 	/**
@@ -267,17 +302,74 @@ public class NetworkClient
 		if (packetReceiveThread != null)
 			packetReceiveThread.setActive(false);
 	}
+	
+	/**
+	 * Receives the next segmented byte[] that the is sendt to this input stream. The reason why data is received as
+	 * a 2D byte[][] instead of a byte[] is because of encryption. To elaborate, if you want to send a byte[] but you 
+	 * also want it encrypted, then the the byte array cannot exceed a certain length. To fix this problem, we just send
+	 * the byte[] as a 2D array where each array in it has a length that is less than or equal to the maximum length. The 
+	 * maximum length is determined by {@link SocketSecurityTool#MAX_DATA_LENGTH}.<b><br><br>The protocol for receiving a byte[]
+	 * that was segmented into a byte[][] is that:<br></b>
+	 * &nbsp &nbsp The other socket will first send the length of the 2D segmented array.<br>
+	 * &nbsp &nbsp Then for each byte[] segment in the segmented array...<br>
+	 * &nbsp &nbsp &nbsp &nbsp The other socket will send the length of the segment<br>
+	 * &nbsp &nbsp &nbsp &nbsp The other socket will send segment as a byte[]<br>
+	 * <br><b>For example, a socket would send a byte[18] as a byte[4][] (let's call it b), where:</b><br> &nbsp &nbsp
+	 * b[0].length = 5; <br> &nbsp &nbsp b[1].length = 5;<br> &nbsp &nbsp b[2].length = 5;<br> &nbsp &nbsp b[3].length =
+	 * 3;<br><b> In the case where {@link SocketSecurityTool#MAX_DATA_LENGTH} is 5.<br></b>
+	 * 
+	 * @param in
+	 * @return
+	 * @throws NotConnectedException
+	 * @throws SocketClosedException
+	 */
+	public static byte[][] readByteSegments(DataInputStream in) throws NotConnectedException, SocketClosedException
+	{
+		try
+		{
+			byte[][] segments = new byte[in.readInt()][];
+			for (int s = 0; s < segments.length; in.read(segments[s]), s++)
+				segments[s] = new byte[in.readInt()];
+			return segments;			
+		}
+		catch (NullPointerException e)
+		{ 
+			throw new NotConnectedException();
+		}
+		catch (IOException e)
+		{
+			throw new SocketClosedException();
+		}
+	}
+	
+	/**
+	 * Manually receives the next array of bytes that is received by {@link #in} from the Socket that this
+	 * Client is connected to. When calling this method, keep in mind the protocol described in
+	 * {@link NetworkClient#readByteSegments(DataInputStream)}. Whether this method is going to expect to
+	 * receive encrypted data is based on the value of {@link #encryptedMode}
+	 * @return the next byte[] array that was sent by the connected DataInputStream, or null if either of the
+	 * above conditions are not met
+	 */
+	public byte[] manualReceiveBytes() throws NotConnectedException, SocketClosedException
+	{
+		byte[][] segments = readByteSegments(in);
+		return encryptedMode ? encrypter.decryptBytes(segments) : segments[0];
+	}
 
 	/**
-	 * Sets this NetworkClient's {@link #listener} to the given listener. When packets are automatically
-	 * received from a {@link PacketReceiveThread}, {@link ClientListener#onAutoReceive(String)} is called
-	 * on the current {@link #listener}.
-	 * @param newListener
+	 * Manually receives the next string that is received by {@link #in} from the Socket that this
+	 * Client is connected to. When calling this method, keep in mind the protocol described in
+	 * {@link NetworkClient#readByteSegments(DataInputStream)}. Whether this method is going to expect to
+	 * receive encrypted data is based on the value of {@link #encryptedMode}
+	 * @return the next byte[] array that was sent by the connected DataInputStream, converted to a String
+	 * because this method is expecting the other end device to have sent a String.
 	 */
-	public void setListener(ClientListener newListener)
+	public String manualReceiveString() throws NotConnectedException, SocketClosedException
 	{
-		listener = newListener;
+		byte[][] segments = readByteSegments(in);
+		return encryptedMode ? encrypter.decryptString(segments) : new String(segments[0]);
 	}
+
 
 	/**
 	 * Sets the name of this NetworkClient to the desired name. According to the protocol of the snake
@@ -290,6 +382,7 @@ public class NetworkClient
 	{
 		this.identification = name;		
 	}
+	
 
 	/**
 	 * Sends the desired packet to the Socket that this NetworkClient is connected to.
@@ -297,121 +390,64 @@ public class NetworkClient
 	 */
 	public void send(Packet p) throws NotConnectedException
 	{
-		if (out == null)
-			throw new NotConnectedException();
-		p.setDataStream(out);
-		p.write(encryptedMode ? encrypter : null);
+		synchronized (SEND_RECEIVE_LOCK)
+		{
+			if (out == null)
+				throw new NotConnectedException();
+			p.setDataStream(out);
+			p.write(encryptedMode ? encrypter : null);
+		}
 	}
-}
-/**
- * This exception is thrown whenever the user tries to send or receive packets from a Server when they are
- * not yet connected to it (socket, in, and out are all null).
- * @author yeatesg
- */
-class NotConnectedException extends RuntimeException
-{
-	private static final long serialVersionUID = 5167690960624627277L;
-
-	@Override
-	public String getMessage()
+	
+	
+	// UNCHECKED EXCEPTIONS BELOW (SHOULDN'T HAVE TO BE HANDLED, IF THESE ARE THROWN THERE IS SOMETHING WRONG WITH MY CODE)
+	
+	/**
+	 * This unchecked exception is thrown in the case where this NetworkClient tried to call {@link NetworkClient#startAutoReceiving()}, or
+	 * a PacketReceiveThread tried to auto-receive a packet, but there is no current {@link ClientListener} to send the packet to.
+	 * @author yeatesg
+	 */
+	public static class ListenerNotFoundException extends RuntimeException
 	{
-		return "Cannot send packets until connected to a server!";
+		private static final long serialVersionUID = 7795590181284875760L;
+
+		@Override
+		public String getMessage()
+		{
+			return "Auto-Receive failed! Make sure this NetworkClient has a listener before auto receiving packets.";
+		}
 	}
-}
-/**
- * This exception is thrown when {@link NetworkClient#attemptConnect(String, int, boolean)} is unable to connect to
- * the server because either an UnknownHostException or an IOException.
- * @author yeatesg
- */
-class ConnectionFailedException extends RuntimeException
-{
-	private static final long serialVersionUID = 4938204820624938277L;
-
-	private String message;
-
-	public ConnectionFailedException(String message)
+	
+	/**
+	 * This unchecked exception is thrown in the case where this NetworkClient tries to send/receive data from the socket but the socket
+	 * was closed and threw an IOException.
+	 * @author yeatesg
+	 */
+	public static class SocketClosedException extends RuntimeException
 	{
-		this.message = message;
-	}
+		private static final long serialVersionUID = 6067006771379735990L;
 
-	@Override
-	public String getMessage()
-	{
-		return message;
+		@Override
+		public String getMessage()
+		{
+			return "Tried to read/write information to the connected Socket but it was closed";
+		}
 	}
-}
-/**
- * This exception is thrown in the case where this NetworkClient was able to connect to a server, but the server
- * denied the connection request because there was already a connected client with the same name.
- * @author yeatesg
- */
-class DuplicateNameException extends RuntimeException
-{
-	private static final long serialVersionUID = 1485720276290184742L;
+	
+	/**
+	 * This unchecked exception is thrown whenever the user tries to send or receive packets from a Server when they are
+	 * not yet connected to it (socket, in, and out are all null).
+	 * @author yeatesg
+	 */
+	public static class NotConnectedException extends RuntimeException
+	{
+		private static final long serialVersionUID = 5167690960624627277L;
 
-	@Override
-	public String getMessage()
-	{
-		return "Your name is taken";
+		@Override
+		public String getMessage()
+		{
+			return "Cannot send packets until connected to a server!";
+		}
 	}
-}
-/**
- * This exception is thrown in the case where this NetworkClient was able to connect to a server, but the server
- * denied the connection request because the server is full.
- * @author yeatesg
- */
-class ServerFullException extends RuntimeException
-{
-	private static final long serialVersionUID = 3948558930285749302L;
-
-	@Override
-	public String getMessage()
-	{
-		return "Server is full";
-	}
-}
-/**
- * This exception is thrown in the case where this NetworkClient was able to connect to a server, but the server
- * denied the connection request because a game is currently active.
- * @author yeatesg
- */
-class ActiveGameException extends RuntimeException
-{
-	private static final long serialVersionUID = 9011662670694108221L;
-
-	@Override
-	public String getMessage()
-	{
-		return "Game already started";
-	}
-}
-/**
- * This exception is thrown in the case where this NetworkClient tried to call {@link NetworkClient#startAutoReceiving()}, or
- * a PacketReceiveThread tried to auto-receive a packet but there is no current {@link ClientListener} to send the packet to.
- * @author yeatesg
- */
-class ListenerNotFoundException extends RuntimeException
-{
-	private static final long serialVersionUID = 7795590181284875760L;
-
-	@Override
-	public String getMessage()
-	{
-		return "Auto-Receive failed! Make sure this NetworkClient has a listener before auto receiving packets.";
-	}
-}
-/**
- * This exception is thrown in the case where this NetworkClient tries to send/receive data from the socket but the socket
- * was closed and threw an IOException.
- * @author yeatesg
- */
-class SocketClosedException extends RuntimeException
-{
-	private static final long serialVersionUID = 6067006771379735990L;
-
-	@Override
-	public String getMessage()
-	{
-		return "Tried to read/write information to the connected Socket but it was been closed";
-	}
+	
 }

@@ -44,13 +44,6 @@ public class LobbyGUI extends JPanel implements ClientListener, WindowListener
 		allClients = new SnakeList();
 		ConnectGUI.setLookAndFeel();
 	}
-	
-	private void onPlayerLeaveLobby(SnakeData whoLeft)
-	{
-		PlayerSlot leaversPanel = slotList.getConnectedSlot(whoLeft);
-		leaversPanel.disconnectClient();
-		allClients.remove(whoLeft);
-	}
 
 	@Override
 	public void onAutoReceive(String data)
@@ -107,6 +100,13 @@ public class LobbyGUI extends JPanel implements ClientListener, WindowListener
 	{
 		MessagePacket exitPacket = new MessagePacket(thisClientName, "I EXIT");
 		networkClient.send(exitPacket);
+	}
+	
+	private void onPlayerLeaveLobby(SnakeData whoLeft)
+	{
+		PlayerSlot leaversPanel = slotList.getConnectedSlot(whoLeft);
+		leaversPanel.disconnectClient();
+		allClients.remove(whoLeft);
 	}
 	
 	@Override

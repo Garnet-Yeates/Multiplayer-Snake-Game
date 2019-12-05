@@ -19,8 +19,8 @@ public class Fruit
 	private FruitType type;
 	private Point location;
 	
-	public static final int MIN_FRUIT_HUNGRY_LENGTH = 31;
-	public static final int MAX_BITE_OFF = MIN_FRUIT_HUNGRY_LENGTH - 1;;
+	public static final int MAX_BITE_OFF = 30;
+	public static final int COMPLEX_CHECK_MIN = MAX_BITE_OFF + 2;
 	
 	public Fruit(FruitType type, Point location)
 	{

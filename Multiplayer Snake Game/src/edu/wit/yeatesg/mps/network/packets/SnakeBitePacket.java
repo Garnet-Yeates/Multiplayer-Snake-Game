@@ -1,22 +1,21 @@
 package edu.wit.yeatesg.mps.network.packets;
 
-import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
+import edu.wit.yeatesg.mps.otherdatatypes.PointList;
 
 public class SnakeBitePacket extends Packet
 {
 	private String biting;
 	private String bitten;
-	private int numSegmentsBit;
-	private int interceptingIndex;
+	private PointList bitOff;
 	
 	public SnakeBitePacket(String... strings)
 	{
 		initFromStringArray(strings);
 	}
 	
-	public SnakeBitePacket(String biting, String bitten, int numSegmentsBit, int interceptingIndex)
+	public SnakeBitePacket(String biting, String bitten, PointList bitOff)
 	{
-		this(biting.toString(), bitten.toString(), numSegmentsBit + "", interceptingIndex + "");
+		this(biting.toString(), bitten.toString(), bitOff.toString());
 	}
 	
 	public SnakeBitePacket(String splittable)
@@ -29,8 +28,7 @@ public class SnakeBitePacket extends Packet
 	{
 		biting = args[0];
 		bitten = args[1];
-		numSegmentsBit = Integer.parseInt(args[2]);
-		interceptingIndex = Integer.parseInt(args[3]);
+		bitOff = new PointList(args[2]);
 	}
 	
 	public String getBiting()
@@ -53,23 +51,13 @@ public class SnakeBitePacket extends Packet
 		this.bitten = bitten;
 	}
 	
-	public int getNumSegmentsBit()
+	public PointList getBitOff()
 	{
-		return numSegmentsBit;
+		return bitOff;
 	}
 	
-	public void setNumSegmentsBit(int numSegmentsBit)
+	public void setBitOff(PointList bitOff)
 	{
-		this.numSegmentsBit = numSegmentsBit;
-	}
-	
-	public int getInterceptingIndex()
-	{
-		return interceptingIndex;
-	}
-	
-	public void setInterceptingIndex(int interceptingIndex)
-	{
-		this.interceptingIndex = interceptingIndex;
+		this.bitOff = bitOff;
 	}
 }

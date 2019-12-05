@@ -90,9 +90,15 @@ public abstract class Packet
 	{
 		try 
 		{
-			byte[] stringBytes = encryptionTool != null ? encryptionTool.encryptString(getUTF(), PARTNER) : getUTF().getBytes();
-			outputStream.writeInt(stringBytes.length);
-			outputStream.write(stringBytes);
+			String utf = getUTF();
+			byte[][] utfAsEncryptedBlocks = encryptionTool != null ? encryptionTool.encryptString(utf, PARTNER) : new byte[][] { utf.getBytes() };
+			outputStream.writeInt(utfAsEncryptedBlocks.length);
+			for (int blockNum = 0; blockNum < utfAsEncryptedBlocks.length; blockNum++)
+			{
+				outputStream.writeInt(utfAsEncryptedBlocks[blockNum].length);
+				outputStream.write(utfAsEncryptedBlocks[blockNum]);
+			}
+
 		}
 		catch (IOException e) { }
 	}

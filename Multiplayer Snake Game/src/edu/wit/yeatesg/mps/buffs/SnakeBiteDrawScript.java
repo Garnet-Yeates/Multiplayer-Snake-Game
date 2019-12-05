@@ -10,7 +10,7 @@ public class SnakeBiteDrawScript extends DeadSnakeDrawScript
 	public SnakeBiteDrawScript(GameplayGUI container, SnakeData who, PointList bitOff)
 	{
 		super(container, who, bitOff);
-		velocityMultiplier = 0.008;
+		velocityMultiplier = 0.012;
 		start();
 	}
 	
@@ -20,5 +20,4 @@ public class SnakeBiteDrawScript extends DeadSnakeDrawScript
 		super.drawSnake(g);
 		beingDrawn.drawSnakeNormally(g, drawingOn);
 	}
-
 }

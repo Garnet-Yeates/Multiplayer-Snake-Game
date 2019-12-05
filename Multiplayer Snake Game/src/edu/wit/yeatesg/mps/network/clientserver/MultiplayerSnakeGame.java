@@ -8,6 +8,14 @@ import edu.wit.yeatesg.mps.otherdatatypes.Vector;
 
 public class MultiplayerSnakeGame
 {
+	public static void main(String[] args)
+	{
+		new Thread(() ->
+		{
+			new ConnectGUI();
+		}).start();
+	}
+	
 	public static final int START_LENGTH = 3;
 
 	public static final int JAR_OFFSET_X = 9;
