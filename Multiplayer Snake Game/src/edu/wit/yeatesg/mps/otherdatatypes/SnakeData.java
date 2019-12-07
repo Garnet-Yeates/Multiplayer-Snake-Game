@@ -1,6 +1,7 @@
 package edu.wit.yeatesg.mps.otherdatatypes;
 
 import java.awt.Graphics;
+import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.lang.reflect.Field;
 import java.net.Socket;
@@ -244,7 +245,7 @@ public class SnakeData
 	// on the client side of this SnakeData, all of these fields will be null
 
 	private SocketSecurityTool $encrypter;
-	private DataOutputStream $outputStream;
+	private BufferedOutputStream $outputStream;
 	private Socket $socket;
 	private ArrayList<Direction> $directionBuffer;
 	private boolean $buffTranslucentActive;
@@ -356,14 +357,14 @@ public class SnakeData
 		return $outputStream != null;
 	}
 
-	public DataOutputStream getOutputStream()
+	public BufferedOutputStream getOutputStream()
 	{
 		return $outputStream;
 	}
 
-	public void setOutputStream(DataOutputStream outputStream)
+	public void setOutputStream(BufferedOutputStream out)
 	{
-		$outputStream = outputStream;
+		$outputStream = out;
 	}
 
 	public Socket getSocket()

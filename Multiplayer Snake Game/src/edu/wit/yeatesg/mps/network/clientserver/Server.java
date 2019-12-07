@@ -1,4 +1,6 @@
 package edu.wit.yeatesg.mps.network.clientserver;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -11,8 +13,9 @@ import java.util.Random;
 import javax.swing.Timer;
 
 import edu.wit.yeatesg.mps.buffs.Fruit;
-import edu.wit.yeatesg.mps.network.clientserver.NetworkClient.NotConnectedException;
-import edu.wit.yeatesg.mps.network.clientserver.NetworkClient.SocketClosedException;
+import edu.wit.yeatesg.mps.buffs.ThreadList;
+import edu.wit.yeatesg.mps.network.clientserver.NetworkClient.ReceiveFailedException;
+import edu.wit.yeatesg.mps.network.clientserver.SocketSecurityTool.SegmentedData;
 import edu.wit.yeatesg.mps.network.packets.DirectionChangePacket;
 import edu.wit.yeatesg.mps.network.packets.FruitPickupPacket;
 import edu.wit.yeatesg.mps.network.packets.FruitSpawnPacket;
@@ -102,7 +105,7 @@ public class Server
 	}
 
 	private SnakeList connectedClients = new SnakeList();
-	
+
 	private class AcceptConnectionsThread extends Thread
 	{
 		@Override
@@ -113,12 +116,13 @@ public class Server
 				try
 				{
 					final Socket s = ss.accept();
-					DataInputStream in = new DataInputStream(s.getInputStream());
-					DataOutputStream out = new DataOutputStream(s.getOutputStream());
+					s.setTcpNoDelay(true);
+					BufferedInputStream in = new BufferedInputStream(s.getInputStream());
+					BufferedOutputStream out = new BufferedOutputStream(s.getOutputStream());
 					String clientName;
 					if ((clientName = onAttemptConnect(s, in, out)) != null)
 					{
-						ReceiveFromClientThread receiveThread = new ReceiveFromClientThread(clientName, s, in, out);
+						ReceiveFromClientThread receiveThread = new ReceiveFromClientThread(clientName, in, out);
 						connectedClients.get(clientName).setPacketReceiveThread(receiveThread);
 						receiveThread.start();
 					}
@@ -132,7 +136,7 @@ public class Server
 			}
 		}
 	}
-	
+
 	/**
 	 * This method is called right after the server socket accepts a connection from a new client. The protocol for
 	 * when a client attempts to connect to this server is that the client will send a SnakeUpdatePacket containing
@@ -146,79 +150,87 @@ public class Server
 	 * @return the client's name if this client connected successfully, or null if the connection was denied
 	 * @throws IOException if in.readUTF() throws an exception
 	 */
-	public String onAttemptConnect(Socket s, DataInputStream in, DataOutputStream out) throws IOException
+	public String onAttemptConnect(Socket s, BufferedInputStream in, BufferedOutputStream out) throws IOException
 	{
-		// Read request packet
-		String rawUTF = new String(NetworkClient.readByteSegments(in)[0]);
-		SnakeUpdatePacket clientRequestPacket = (SnakeUpdatePacket) Packet.parsePacket(rawUTF);
-		System.out.println("Server Received -> " + clientRequestPacket);
-
-		// Process request packet
-		SnakeData newClient = clientRequestPacket.getClientData();
-		String clientName = newClient.getClientName();
-		System.out.println("Attempt Connect From -> " + clientName + " " + s.getInetAddress());
-		newClient.setSocket(s);
-		newClient.setOutputStream(out);
-		newClient.setDirectionBuffer(new ArrayList<>());
-
-		// Determine what the response will be
-		MessagePacket responsePacket = new MessagePacket("Server", "CONNECTION ACCEPT");
-		if (!isDuplicateClient(clientName) && !isServerFull() && !gameStarted)
+		try
 		{
-			System.out.println("Server -> CONNECTION ACCEPT" );
-			// Send "CONNECTION ACCEPT" response
-			send(responsePacket, newClient, false);
-			// After client gets CONNECTION ACCEPT it sends its encryption key, so process key below
-			byte[] clientKey = NetworkClient.readByteSegments(in)[0];
-			System.out.println("Server received clint key");
-			// Assign a separate AsymmetricEncryptionTool to this client to send encrypted packets to them
-			SocketSecurityTool clientEncrypter = new SocketSecurityTool();
-			newClient.setEncrypter(clientEncrypter);
-			clientEncrypter.setPartnerKey(clientKey);
+			// Read request packet
+			String rawUTF = new String(SegmentedData.receiveSegmentedData(in).getOriginalByteArray());
+			SnakeUpdatePacket clientRequestPacket = (SnakeUpdatePacket) Packet.parsePacket(rawUTF);
+			System.out.println("Server Received -> " + clientRequestPacket);
 
-			// After receiving client encryption key, send server encryption key to client to fully establish asym connection
-			serverDecrypter.sendPublicKey(out);
+			// Process request packet
+			SnakeData newClient = clientRequestPacket.getClientData();
+			String clientName = newClient.getClientName();
+			System.out.println("Attempt Connect From -> " + clientName + " " + s.getInetAddress());
+			newClient.setSocket(s);
+			newClient.setOutputStream(out);
+			newClient.setDirectionBuffer(new ArrayList<>());
 
-			PlayerSlot emptySlot = slots.getNextEmptySlot();
-			emptySlot.bindClient(newClient);
+			// Determine what the response will be
+			MessagePacket responsePacket = new MessagePacket("Server", "CONNECTION ACCEPT");
+			if (!isDuplicateClient(clientName) && !isServerFull() && !gameStarted)
+			{
+				System.out.println("Server -> CONNECTION ACCEPT" );
+				// Send "CONNECTION ACCEPT" response
+				send(responsePacket, newClient, false);
+				// After client gets CONNECTION ACCEPT it sends its encryption key, so process key below
+				byte[] clientKey = SegmentedData.receiveSegmentedData(in).getOriginalByteArray();
+				// Assign a separate AsymmetricEncryptionTool to this client to send encrypted packets to them
+				SocketSecurityTool clientEncrypter = new SocketSecurityTool();
+				newClient.setEncrypter(clientEncrypter);
+				clientEncrypter.setPartnerKey(clientKey);
 
-			connectedClients.add(newClient);	
-			updateAllClients(true);
-			return newClient.getClientName();
-		} 
-		else if (gameStarted)
-		{
-			responsePacket.setMessage("GAME ACTIVE");
+				// After receiving client encryption key, send server encryption key to client to fully establish asym connection
+				serverDecrypter.sendPublicKey(out);
+
+				PlayerSlot emptySlot = slots.getNextEmptySlot();
+				emptySlot.bindClient(newClient);
+
+				connectedClients.add(newClient);
+				updateAllClients(true);
+
+				return newClient.getClientName();
+			} 
+			else
+			{
+				if (gameStarted)
+				{
+					responsePacket.setMessage("GAME ACTIVE");
+				}
+				else if (isServerFull())
+				{
+					responsePacket.setMessage("SERVER FULL");
+				}
+				else if (isDuplicateClient(clientName))
+				{
+					responsePacket.setMessage("NAME TAKEN");
+				}
+				send(responsePacket, newClient);
+				return null;
+			}
 		}
-		else if (isServerFull())
+		catch (ReceiveFailedException e)
 		{
-			responsePacket.setMessage("SERVER FULL");
+			return null;
 		}
-		else if (isDuplicateClient(clientName))
-		{
-			responsePacket.setMessage("NAME TAKEN");
-		}
-		send(responsePacket, newClient);
-		return null;
 	}
 
 	public class ReceiveFromClientThread extends Thread
 	{
 		private boolean receiving = true;
-		
+
 		private String clientName;
-		private Socket clientSocket;
-		private DataInputStream in;
-		private DataOutputStream out;
-		
-		public ReceiveFromClientThread(String clientName, Socket clientSocket, DataInputStream in, DataOutputStream out)
+		private BufferedInputStream in;
+		private BufferedOutputStream out;
+
+		public ReceiveFromClientThread(String clientName, BufferedInputStream in, BufferedOutputStream out)
 		{
 			this.clientName = clientName;
-			this.clientSocket = clientSocket;
 			this.in = in;
 			this.out = out;
 		}
-		
+
 		@Override
 		public void run()
 		{
@@ -226,18 +238,19 @@ public class Server
 			{
 				try 
 				{
-					byte[][] blocks = NetworkClient.readByteSegments(in);
-					String received = serverDecrypter.decryptString(blocks);
+					String received;
+					SegmentedData bytePacket = SegmentedData.receiveSegmentedData(in);
+					received = serverDecrypter.decryptString(bytePacket);
 					onReceive(received);
 				}
 				catch (Exception e)
 				{
 					receiving = false;
-					e.printStackTrace();
+					System.out.println("Exception normal: tried to send data to " + clientName + " after their connection was closed.");
 				}
 			}
 		}
-		
+
 		public void end()
 		{
 			receiving = false;
@@ -246,7 +259,7 @@ public class Server
 
 	private boolean gameStarted = false;
 
-	
+
 	/**
 	 * Determines whether or not there is already a client on this server with the same name as the one given in
 	 * the parameter. Since clients are identified by their name, client equality is also determined based on
@@ -269,9 +282,6 @@ public class Server
 		return connectedClients.size() == 4;
 	}
 
-	/** Used to synchronize send() and onReceive() because we do not want any those methods running concurrently */
-	private final Object SEND_REC_LOCK = new Object();
-
 	/**
 	 * This method is used for when the Server is sending a packet to a single client. This method
 	 * sets the data stream of the packet to the data stream associated with the given client
@@ -280,11 +290,9 @@ public class Server
 	 */
 	public void send(Packet p, SnakeData to, boolean encrypting)
 	{
-		synchronized (SEND_REC_LOCK)
-		{
-			p.setDataStream(to.getOutputStream());
-			p.write(encrypting ? to.getEncrypter() : null);
-		}
+		// TODO rem
+		encrypting = true;
+		p.sendAsSecureData(to.getOutputStream(), (encrypting ? to.getEncrypter() : null));
 	}
 
 	public void send(Packet p, SnakeData to)
@@ -295,36 +303,30 @@ public class Server
 	public void sendToAll(Packet p)
 	{
 		for (SnakeData dat : connectedClients)
-			send(p, dat);
+		{
+			ThreadList threads = new ThreadList();
+			threads.joinThread(new Thread(() ->
+			{
+				send(p, dat);
+			}));
+			threads.startAndWait(0);
+		}
 	}
 
-	/**
-	 * For each connected client on the server, there is a separate thread for them where, in a while loop,
-	 * {@link DataInputStream#readUTF()} is called. Each time that method is called for a specific client,
-	 * the UTF data is passed to this onReceive() method. This method is synchronized because we do not want
-	 * the server to receive two packets of data concurrently, because that can result in a concurrent modification
-	 * exception in the {@link #connectedClients} list, among other unpredictable things. The {@link #onTick()} method
-	 * is also synchronized for the same reason ({@link #onTick()} and {@link #onReceive(String)} are the only two
-	 * methods in the server that interact with other threads, so they are the only two that should be synchronized)
-	 * @param data the raw UTF data received from the client socket on another thread
-	 */
 	public void onReceive(String data) 
 	{
-		synchronized (SEND_REC_LOCK)
+		Packet packetReceiving = Packet.parsePacket(data);
+		switch (packetReceiving.getClass().getSimpleName())
 		{
-			Packet packetReceiving = Packet.parsePacket(data);
-			switch (packetReceiving.getClass().getSimpleName())
-			{
-			case "MessagePacket":
-				onReceiveMessagePacket((MessagePacket) packetReceiving);
-				break;
-			case "SnakeUpdatePacket":
-				onReceiveClientDataUpdate((SnakeUpdatePacket) packetReceiving);
-				break;
-			case "DirectionChangePacket":
-				onReceiveClientDirectionChangeRequest((DirectionChangePacket) packetReceiving);
-				break;
-			}
+		case "MessagePacket":
+			onReceiveMessagePacket((MessagePacket) packetReceiving);
+			break;
+		case "SnakeUpdatePacket":
+			onReceiveClientDataUpdate((SnakeUpdatePacket) packetReceiving);
+			break;
+		case "DirectionChangePacket":
+			onReceiveClientDirectionChangeRequest((DirectionChangePacket) packetReceiving);
+			break;
 		}
 	}
 
@@ -344,6 +346,8 @@ public class Server
 		case "I EXIT":
 			onReceiveClientDisconnectRequest(sender);
 			break;
+		case "UPDATE ME":
+			updateClient(sender, true);
 		}
 	}
 
@@ -408,32 +412,35 @@ public class Server
 	}
 
 	private Timer tickTimer; 
-	private int tickRate = 70; // 14.28 squares/sec
-
+	private int tickRate = 80; // 12.5 squares/sec
+	
 	private void onReceiveGameStartPacket()
 	{		
-		gameStarted = true;
-
-		final int gameStartDelay = 6000; // 6000
-		final int numTicks = 3; // 3
-		final int initialDelay = 3000; // 3000
-		InitiateGamePacket gameCounterPack = new InitiateGamePacket(initialDelay, gameStartDelay, numTicks);
-		sendToAll(gameCounterPack);
-
-		for (SnakeData client : connectedClients)
+		if (!gameStarted)
 		{
-			client.modifyFoodInBelly(37);
+			gameStarted = true;
+
+			final int gameStartDelay = 6000; // 6000
+			final int numTicks = 3; // 3
+			final int initialDelay = 3000; // 3000
+			InitiateGamePacket gameCounterPack = new InitiateGamePacket(initialDelay, gameStartDelay, numTicks);
+			sendToAll(gameCounterPack);
+
+			for (SnakeData client : connectedClients)
+			{
+				client.modifyFoodInBelly(37);
+			}
+
+			spawnRandomFruit();
+			spawnRandomFruit();
+			spawnRandomFruit();
+			spawnRandomFruit();
+
+			// Start the timer after gameStartDelay and start the game ticks
+			tickTimer = new Timer(tickRate, (e) -> onTick());
+			tickTimer.setInitialDelay(gameStartDelay);
+			tickTimer.start();
 		}
-
-		spawnRandomFruit();
-		spawnRandomFruit();
-		spawnRandomFruit();
-		spawnRandomFruit();
-
-		// Start the timer after gameStartDelay and start the game ticks
-		tickTimer = new Timer(tickRate, (e) -> onTick());
-		tickTimer.setInitialDelay(gameStartDelay);
-		tickTimer.start();
 	}
 
 	/**
@@ -448,6 +455,7 @@ public class Server
 		updateAllClients(false);
 		MessagePacket tickPacket = new MessagePacket("Server", "SERVER TICK");
 		sendToAll(tickPacket);
+		tickNum++;
 	}
 
 	private void doSnakeMovements()
@@ -545,7 +553,6 @@ public class Server
 						interceptingSnake.modifyFoodInBelly(-1*interceptingSnake.getFoodInBelly());
 						thisSnake.removeHungryBuffEarly();
 						interceptingSnake.removeAllBuffsEarly();
-						sendPointListNextUpdate();
 						SnakeBitePacket snakeBite = new SnakeBitePacket(thisSnake.getClientName(), interceptingSnake.getClientName(), bitOff);
 						sendToAll(snakeBite);
 					}
@@ -604,29 +611,29 @@ public class Server
 			}
 		}
 	}
-	
-	private boolean forceSendPointList = false;
 
-	private void sendPointListNextUpdate()
-	{
-		forceSendPointList = true;
-	}
-	
+	private int tickNum = 0;
+
 	private void updateAllClients(boolean sendPointList)
 	{
-		if (forceSendPointList == true)
-		{
-			forceSendPointList = false;
-			sendPointList = true;
-		}
-		
 		for (SnakeData client : connectedClients)
 		{
 			String[] excluding = sendPointList ? null : new String[] { "pointList" };
 			SnakeData clientClone = new SnakeData(ReflectionTools.fieldsToString(SnakeData.REGEX, client, SnakeData.class, excluding));
 			SnakeUpdatePacket updatePack = new SnakeUpdatePacket(clientClone);
-			sendToAll(updatePack);
-		}	
+			sendToAll(updatePack);	
+		}
+	}
+	
+	private void updateClient(SnakeData updating, boolean sendPointList)
+	{
+		for (SnakeData client : connectedClients)
+		{
+			String[] excluding = sendPointList ? null : new String[] { "pointList" };
+			SnakeData clientClone = new SnakeData(ReflectionTools.fieldsToString(SnakeData.REGEX, client, SnakeData.class, excluding));
+			SnakeUpdatePacket updatePack = new SnakeUpdatePacket(clientClone);
+			send(updatePack, updating);
+		}
 	}
 
 	private ArrayList<Fruit> allFruit = new ArrayList<>();

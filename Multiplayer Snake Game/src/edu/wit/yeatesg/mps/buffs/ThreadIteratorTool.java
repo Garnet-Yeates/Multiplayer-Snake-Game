@@ -3,26 +3,26 @@ package edu.wit.yeatesg.mps.buffs;
 import java.util.ArrayList;
 import java.util.Iterator;
 
-public class ThreadTool implements Iterable<Integer>
+public class ThreadIteratorTool implements Iterable<Integer>
 {
 	private int startIndex;
 	private int endIndex;
 
-	public ThreadTool(int startIndex, int endIndex)
+	public ThreadIteratorTool(int startIndex, int endIndex)
 	{
 		this.startIndex = startIndex;
 		this.endIndex = endIndex;
 	}
 
-	public static ThreadTool[] splitIntoThreads(double size)
+	public static ThreadIteratorTool[] splitIntoThreads(double size)
 	{
-		int numThreads = ThreadTool.getSuggestedNumThreads((int) size);
-		ThreadTool[] toolArr = new ThreadTool[numThreads];
+		int numThreads = ThreadIteratorTool.getSuggestedNumThreads((int) size);
+		ThreadIteratorTool[] toolArr = new ThreadIteratorTool[numThreads];
 		double[] fractions = new double[numThreads + 1];
 		for (int i = 0; i <= numThreads; i++)
 			fractions[i] = (double) i / (double) numThreads;
 		for (int i = 0, j = 1; j < fractions.length; j++, i++)
-			toolArr[i] = new ThreadTool((int) (fractions[i]*size), (int) (fractions[j]*size));
+			toolArr[i] = new ThreadIteratorTool((int) (fractions[i]*size), (int) (fractions[j]*size));
 		return toolArr;
 	}
 

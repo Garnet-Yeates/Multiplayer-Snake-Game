@@ -1,4 +1,5 @@
 package edu.wit.yeatesg.mps.otherdatatypes;
+import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -116,9 +117,9 @@ public class SnakeList extends ArrayList<SnakeData>
 	// Server-Only Methods
 	
 	
-	public synchronized ArrayList<DataOutputStream> getAllOutputStreams()
+	public synchronized ArrayList<BufferedOutputStream> getAllOutputStreams()
 	{
-		ArrayList<DataOutputStream> list = new ArrayList<>();
+		ArrayList<BufferedOutputStream> list = new ArrayList<>();
 		for (SnakeData dat : this)
 			if (dat.getOutputStream() != null)
 				list.add(dat.getOutputStream());

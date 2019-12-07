@@ -63,7 +63,8 @@ public class GameplayGUI extends JPanel implements ClientListener, KeyListener, 
 	public void onAutoReceive(String data)
 	{
 		Packet packetReceiving = Packet.parsePacket(data);
-
+		System.out.println(thisClient.getClientName() + " Receive -> " + packetReceiving);
+		
 		switch (packetReceiving.getClass().getSimpleName())
 		{
 		case "InitiateGamePacket":
@@ -147,6 +148,10 @@ public class GameplayGUI extends JPanel implements ClientListener, KeyListener, 
 		bitBy.endBuffDrawScriptEarly();
 		bitten.endBuffDrawScriptEarly();
 		PointList bitOff = packetReceiving.getBitOff();
+		PointList bittenPointsClone = bitten.getPointList(true);
+		for (int i = 0; i < bitOff.size(); i++)
+			bittenPointsClone.remove(bittenPointsClone.get(bittenPointsClone.size() - 1));
+		bitten.setPointList(bittenPointsClone);
 		new SnakeBiteDrawScript(this, bitten, bitOff);
 	}
 

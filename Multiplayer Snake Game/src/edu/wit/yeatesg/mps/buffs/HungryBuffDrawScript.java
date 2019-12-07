@@ -67,12 +67,12 @@ public class HungryBuffDrawScript extends SnakeDrawScript implements TickListene
 				highlightColIndex = (highlightColIndex + 1) % highlightColorAssigner.length;
 
 //		Split this client's SnakeList into multiple threads if it is long enough according to ThreadTool, and draw the animation
-		ThreadTool[] tools = ThreadTool.splitIntoThreads(beingDrawn.getLength());
+		ThreadIteratorTool[] tools = ThreadIteratorTool.splitIntoThreads(beingDrawn.getLength());
 		Thread[] threads = new Thread[tools.length];
 		int colIndex = snakeColAssignerOffset;
 		for (int i = 0; i < tools.length; i++)
 		{
-			ThreadTool tool = tools[i];
+			ThreadIteratorTool tool = tools[i];
 //			colIndex--;
 			colIndex = i > 0 ? colIndex - (tools[i - 1].getEndIndex() - tools[i - 1].getStartIndex()) : colIndex;		
 			if (colIndex < 0)
@@ -105,7 +105,7 @@ public class HungryBuffDrawScript extends SnakeDrawScript implements TickListene
 			threads[i] = t;
 			t.start();
 		}	
-		ThreadTool.waitForThreads(threads);
+		ThreadIteratorTool.waitForThreads(threads);
 		
 //		If the client whose hungry buff animation is being drawn is also the client that is drawing it, display the edible locations on the other snakes
 		if (drawingSelf)

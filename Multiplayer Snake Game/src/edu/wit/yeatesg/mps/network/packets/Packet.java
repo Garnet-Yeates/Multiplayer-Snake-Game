@@ -1,10 +1,8 @@
 package edu.wit.yeatesg.mps.network.packets;
-import java.io.DataOutputStream;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.Collection;
-
 import edu.wit.yeatesg.mps.network.clientserver.SocketSecurityTool;
+import edu.wit.yeatesg.mps.network.clientserver.SocketSecurityTool.EncryptionFailedException;
 import edu.wit.yeatesg.mps.otherdatatypes.ReflectionTools;
 
 import static edu.wit.yeatesg.mps.network.clientserver.SocketSecurityTool.*;
@@ -12,8 +10,6 @@ import static edu.wit.yeatesg.mps.network.clientserver.SocketSecurityTool.*;
 public abstract class Packet
 {
 	public static final String REGEX = "`";
-
-	private DataOutputStream outputStream;
 
 	public Packet(String... args)
 	{
@@ -81,31 +77,27 @@ public abstract class Packet
 		}
 		if (pack == null) 
 		{
-			System.out.println("\n\n\n\n\n\n\n\n\nNULL PACKET\n\n\n\n\n\n\n\n\n\n");
+			System.out.println("\n\n\n\n\nNULL PACKET\n\n\n\n\n\n");
 		}
 		return pack;
 	}
 
-	public void write(SocketSecurityTool encryptionTool)
+	public void sendAsSecureData(BufferedOutputStream outputStream, SocketSecurityTool encryptionTool)
 	{
 		try 
 		{
-			String utf = getUTF();
-			byte[][] utfAsEncryptedBlocks = encryptionTool != null ? encryptionTool.encryptString(utf, PARTNER) : new byte[][] { utf.getBytes() };
-			outputStream.writeInt(utfAsEncryptedBlocks.length);
-			for (int blockNum = 0; blockNum < utfAsEncryptedBlocks.length; blockNum++)
+			synchronized (outputStream)
 			{
-				outputStream.writeInt(utfAsEncryptedBlocks[blockNum].length);
-				outputStream.write(utfAsEncryptedBlocks[blockNum]);
+				String utf = getUTF();
+				SegmentedData secureData = encryptionTool != null ? encryptionTool.encryptString(utf, PARTNER) : new SegmentedData(utf.getBytes("UTF-8"), SocketSecurityTool.MAX_DATA_LENGTH);
+				secureData.send(outputStream);
 			}
-
 		}
-		catch (IOException e) { }
-	}
-
-	public void setDataStream(DataOutputStream os)
-	{
-		outputStream = os;
+		catch (IOException | EncryptionFailedException e)
+		{ 
+			System.out.println("Packet.writeUTF failed due a(n) " + e.getClass().getSimpleName());
+		}
+	
 	}
 
 	public final String getUTF()

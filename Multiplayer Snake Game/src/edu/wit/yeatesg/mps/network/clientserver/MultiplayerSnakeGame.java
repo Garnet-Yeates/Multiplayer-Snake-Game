@@ -1,5 +1,10 @@
 package edu.wit.yeatesg.mps.network.clientserver;
 
+import java.io.DataInputStream;
+import java.io.IOException;
+
+import edu.wit.yeatesg.mps.network.clientserver.NetworkClient.NotConnectedException;
+import edu.wit.yeatesg.mps.network.clientserver.NetworkClient.SocketClosedException;
 import edu.wit.yeatesg.mps.otherdatatypes.Color;
 import edu.wit.yeatesg.mps.otherdatatypes.Direction;
 import edu.wit.yeatesg.mps.otherdatatypes.Point;
@@ -21,9 +26,9 @@ public class MultiplayerSnakeGame
 	public static final int JAR_OFFSET_X = 9;
 	public static final int JAR_OFFSET_Y = 10;
 
-	public static final int NUM_HORIZONTAL_UNITS = 95; // 95
+	public static final int NUM_HORIZONTAL_UNITS = 86; // 95
 	public static final int NUM_HORIZONTAL_SPACES = NUM_HORIZONTAL_UNITS + 1;
-	public static final int NUM_VERTICAL_UNITS = 50; // 50
+	public static final int NUM_VERTICAL_UNITS = 43; // 50
 	public static final int NUM_VERTICAL_SPACES = NUM_VERTICAL_UNITS + 1;
 	public static final int UNIT_SIZE = 18; // 18
 	public static final int SPACE_SIZE = 1; 
@@ -41,11 +46,11 @@ public class MultiplayerSnakeGame
 		switch (slotNum)
 		{
 		case 1:
-			return Color.RED;
-		case 2:
-			return Color.BLUE;
-		case 3:
 			return Color.GREEN;
+		case 2:
+			return Color.RED;
+		case 3:
+			return Color.BLUE;
 		case 4:
 			return Color.YELLOW;
 		default:
