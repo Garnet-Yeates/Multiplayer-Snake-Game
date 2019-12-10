@@ -10,7 +10,7 @@ import edu.wit.yeatesg.mps.network.packets.SnakeUpdatePacket;
 
 // No duplicate elements
 
-public class SnakeList extends ArrayList<SnakeData>
+public class SnakeList extends ArrayList<Snake>
 {
 	public static final String REGEX = "/";
 
@@ -20,7 +20,7 @@ public class SnakeList extends ArrayList<SnakeData>
 	{
 		for (String s : params)
 		{
-			SnakeData data = new SnakeData(s);
+			Snake data = new Snake(s);
 			if (!contains(data))
 				add(data);
 		}
@@ -33,7 +33,7 @@ public class SnakeList extends ArrayList<SnakeData>
 	
 	public synchronized int indexOf(String s)
 	{
-		for (SnakeData data : this)
+		for (Snake data : this)
 			if (data.getClientName().equalsIgnoreCase((String) s))
 				return indexOf(data);
 		return -1;
@@ -41,13 +41,13 @@ public class SnakeList extends ArrayList<SnakeData>
 
 	public synchronized boolean contains(String s)
 	{
-		for (SnakeData data : this)
+		for (Snake data : this)
 			if (data.getClientName().equalsIgnoreCase(s))
 				return true;
 		return false;
 	}
 
-	public synchronized SnakeData get(String name)
+	public synchronized Snake get(String name)
 	{
 		int index = indexOf(name);
 		return index != -1 ? get(index) : null;
@@ -58,7 +58,7 @@ public class SnakeList extends ArrayList<SnakeData>
 	{
 		String s = "";
 		int index = 0;
-		for (SnakeData dat : this)
+		for (Snake dat : this)
 		{
 			s += dat + (index == size() - 1 ? "" : REGEX);
 			index++;
@@ -66,14 +66,14 @@ public class SnakeList extends ArrayList<SnakeData>
 		return s;
 	}
 	
-	private SnakeData joinedOnLastUpdate = null;
+	private Snake joinedOnLastUpdate = null;
 	
 	public synchronized void updateBasedOn(SnakeUpdatePacket pack)
 	{
-		SnakeData updated = pack.getClientData();
+		Snake updated = pack.getClientData();
 		if (contains(updated.getClientName()))
 		{
-			for (SnakeData data : this)
+			for (Snake data : this)
 				if (data.getClientName().equals(updated.getClientName()))
 					data.updateBasedOn(pack);
 			joinedOnLastUpdate = null;
@@ -90,24 +90,24 @@ public class SnakeList extends ArrayList<SnakeData>
 		return joinedOnLastUpdate != null;
 	}
 	
-	public synchronized SnakeData getWhoJoinedOnLastUpdate()
+	public synchronized Snake getWhoJoinedOnLastUpdate()
 	{
 		return joinedOnLastUpdate;
 	}
 	
-	public synchronized ArrayList<SnakeData> getAliveSnakes()
+	public synchronized ArrayList<Snake> getAliveSnakes()
 	{
-		ArrayList<SnakeData> livingSnakes = new ArrayList<>();
-		for (SnakeData snake : this)
+		ArrayList<Snake> livingSnakes = new ArrayList<>();
+		for (Snake snake : this)
 			if (snake.isAlive())
 				livingSnakes.add(snake);
 		return livingSnakes;
 	}
 	
-	public synchronized ArrayList<SnakeData> getAllSnakesExcept(SnakeData exluding)
+	public synchronized ArrayList<Snake> getAllSnakesExcept(Snake exluding)
 	{
-		ArrayList<SnakeData> otherSnakes = new ArrayList<>();
-		for (SnakeData snake : this)
+		ArrayList<Snake> otherSnakes = new ArrayList<>();
+		for (Snake snake : this)
 			if (!snake.equals(exluding))
 				otherSnakes.add(snake);
 		return otherSnakes;
@@ -116,15 +116,6 @@ public class SnakeList extends ArrayList<SnakeData>
 	
 	// Server-Only Methods
 	
-	
-	public synchronized ArrayList<BufferedOutputStream> getAllOutputStreams()
-	{
-		ArrayList<BufferedOutputStream> list = new ArrayList<>();
-		for (SnakeData dat : this)
-			if (dat.getOutputStream() != null)
-				list.add(dat.getOutputStream());
-		return list;
-	}
 	
 	public synchronized SnakeList clone()
 	{
@@ -142,36 +133,36 @@ public class SnakeList extends ArrayList<SnakeData>
 	}
 	
 	@Override
-	public synchronized SnakeData remove(int index)
+	public synchronized Snake remove(int index)
 	{
 		return super.remove(index);
 	}
 	
 	@Override
-	public synchronized boolean add(SnakeData e)
+	public synchronized boolean add(Snake e)
 	{
 		return super.add(e);
 	}
 	
 	@Override
-	public synchronized void add(int index, SnakeData element)
+	public synchronized void add(int index, Snake element)
 	{
 		super.add(index, element);
 	}
 	
 	@Override
-	public synchronized boolean addAll(Collection<? extends SnakeData> c)
+	public synchronized boolean addAll(Collection<? extends Snake> c)
 	{
 		return super.addAll(c);
 	}
 	
 	@Override
-	public synchronized Iterator<SnakeData> iterator()
+	public synchronized Iterator<Snake> iterator()
 	{
 		return new SnakeListIterator();
 	}
 	
-	public class SnakeListIterator implements Iterator<SnakeData>
+	public class SnakeListIterator implements Iterator<Snake>
 	{
 		private int cursor = 0;
 		
@@ -185,7 +176,7 @@ public class SnakeList extends ArrayList<SnakeData>
 		}
 
 		@Override
-		public SnakeData next()
+		public Snake next()
 		{
 			synchronized (SnakeList.this)
 			{

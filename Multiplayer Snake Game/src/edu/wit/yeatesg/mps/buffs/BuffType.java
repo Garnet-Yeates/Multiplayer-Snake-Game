@@ -1,7 +1,7 @@
 package edu.wit.yeatesg.mps.buffs;
 
 import edu.wit.yeatesg.mps.network.clientserver.GameplayGUI;
-import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
+import edu.wit.yeatesg.mps.otherdatatypes.Snake;
 
 public enum BuffType
 {
@@ -19,7 +19,7 @@ public enum BuffType
 		return duration;
 	}
 	
-	public void startDrawScript(GameplayGUI drawingOn, SnakeData who)
+	public void startDrawScript(GameplayGUI drawingOn, Snake who)
 	{
 		if (this == BUFF_TRANSLUCENT)
 			new TranslucentBuffDrawScript(drawingOn, who, duration);

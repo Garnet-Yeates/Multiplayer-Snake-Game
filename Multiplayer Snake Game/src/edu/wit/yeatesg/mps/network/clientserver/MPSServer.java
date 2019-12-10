@@ -6,16 +6,20 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
+import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Random;
 
 import javax.swing.Timer;
 
+
 import edu.wit.yeatesg.mps.buffs.Fruit;
 import edu.wit.yeatesg.mps.buffs.ThreadList;
-import edu.wit.yeatesg.mps.network.clientserver.NetworkClient.ReceiveFailedException;
-import edu.wit.yeatesg.mps.network.clientserver.SocketSecurityTool.SegmentedData;
+import edu.wit.yeatesg.mps.network.clientserver.MPSClient.NotConnectedException;
+import edu.wit.yeatesg.mps.network.clientserver.MPSServer.ClientThread;
 import edu.wit.yeatesg.mps.network.packets.DirectionChangePacket;
 import edu.wit.yeatesg.mps.network.packets.FruitPickupPacket;
 import edu.wit.yeatesg.mps.network.packets.FruitSpawnPacket;
@@ -30,7 +34,7 @@ import edu.wit.yeatesg.mps.otherdatatypes.Direction;
 import edu.wit.yeatesg.mps.otherdatatypes.Point;
 import edu.wit.yeatesg.mps.otherdatatypes.PointList;
 import edu.wit.yeatesg.mps.otherdatatypes.ReflectionTools;
-import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
+import edu.wit.yeatesg.mps.otherdatatypes.Snake;
 import edu.wit.yeatesg.mps.otherdatatypes.SnakeList;
 
 import static edu.wit.yeatesg.mps.network.clientserver.MultiplayerSnakeGame.*;
@@ -40,7 +44,7 @@ import static edu.wit.yeatesg.mps.network.clientserver.MultiplayerSnakeGame.*;
  * Synchronization Logic:
  * 1) Since {@link #onReceive(String)} is able to be called by up to 4 different threads concurrently, it should
  * be synchronized so that only one thread calls it at once, avoiding tons of unpredictable results
- * 2) The {@link #send(Packet, SnakeData, boolean)} method should also be synchronized. This is because we do not
+ * 2) The {@link #send(Packet, Snake, boolean)} method should also be synchronized. This is because we do not
  * want run into the case where packets are encrypted (sent) and decrypted (received) at the same time, because this
  * can confuse the encrypt/decrypt cipher in SocketSecurityTool (I low-key already avoided this by synchronizing
  * {@link SocketSecurityTool#decryptBytes(byte[])} and {@link SocketSecurityTool#encryptBytes(byte[], SocketSecurityTool.Key)},
@@ -49,17 +53,17 @@ import static edu.wit.yeatesg.mps.network.clientserver.MultiplayerSnakeGame.*;
  * @author yeatesg
  *
  */
-public class Server 
+public class MPSServer extends SecureSocket
 {	
-	private ServerSocket ss;
-	private SocketSecurityTool serverDecrypter;
+	private boolean serverRunning;
 	private int port;
-	private boolean open;
+	private ServerSocket internal;
 
-	public Server(int port) 
+	public MPSServer(int port) 
 	{
+		super(true);
 		this.port = port;
-		serverDecrypter = new SocketSecurityTool();
+		serverRunning = false;
 	}
 
 	/**
@@ -73,8 +77,8 @@ public class Server
 	{
 		try
 		{	
-			ss = new ServerSocket(port);
-			open = true;
+			internal = new ServerSocket(port);
+			serverRunning = true;
 			Thread acceptConnections = new AcceptConnectionsThread();
 			acceptConnections.setName("Start-Server-Thread");
 			acceptConnections.start();
@@ -104,149 +108,164 @@ public class Server
 		}
 	}
 
-	private SnakeList connectedClients = new SnakeList();
+	public class ClientInformation
+	{
+		private Socket socket;
+		private BufferedOutputStream out;
+		private BufferedInputStream in;
+		private PublicKey key;
+
+		public void link(Snake client, Socket theirSocket, BufferedInputStream in) throws IOException, NotConnectedException, NoSuchAlgorithmException, InvalidKeySpecException, DecryptionFailedException
+		{
+			try
+			{
+				socket = theirSocket;
+				out = new BufferedOutputStream(socket.getOutputStream());
+				this.in = in;
+				client.setSocketInfo(this);
+				key = tradeKeys();
+			}
+			catch (IOException | NotConnectedException | NoSuchAlgorithmException | InvalidKeySpecException | DecryptionFailedException e)
+			{
+				throw e;
+			}
+		}
+
+		public PublicKey tradeKeys() throws NotConnectedException, IOException, DecryptionFailedException, NoSuchAlgorithmException, InvalidKeySpecException
+		{
+			if (ENCRYPT_ENABLED)
+			{
+				byte[] encodedKey = nextSecureBytes(in);
+				System.out.println("about to trade keyskeys");
+				PublicKey clientKey = publicKeyFromEncoded(encodedKey);
+				sendPublicKey(out);
+				return clientKey;
+			}
+			return null;
+		}
+	}
 
 	private class AcceptConnectionsThread extends Thread
 	{
 		@Override
 		public void run() 
 		{
-			while (open)
+			while (serverRunning)
 			{
 				try
 				{
-					final Socket s = ss.accept();
-					s.setTcpNoDelay(true);
-					BufferedInputStream in = new BufferedInputStream(s.getInputStream());
-					BufferedOutputStream out = new BufferedOutputStream(s.getOutputStream());
-					String clientName;
-					if ((clientName = onAttemptConnect(s, in, out)) != null)
-					{
-						ReceiveFromClientThread receiveThread = new ReceiveFromClientThread(clientName, in, out);
-						connectedClients.get(clientName).setPacketReceiveThread(receiveThread);
-						receiveThread.start();
-					}
-					else
-						s.close();
-				} 
+					Socket accepted = internal.accept();
+					accepted.setTcpNoDelay(true);
+					new ClientThread(accepted).start();
+				}
 				catch (IOException e)
 				{
-					System.out.println("[Server] IOException occured while waiting for a connection");
-				}			
+					e.printStackTrace();
+				}
 			}
 		}
 	}
 
-	/**
-	 * This method is called right after the server socket accepts a connection from a new client. The protocol for
-	 * when a client attempts to connect to this server is that the client will send a SnakeUpdatePacket containing
-	 * their desired name to the server. The server will then determine whether or not the connection is accepted based
-	 * on a few factors. The determining factors for a client connecting are that the server cannot be full, a game
-	 * cannot currently be running, and {@link #isDuplicateClient(String)} needs to return false for the newly connected
-	 * client's name.
-	 * @param s the socket for the client that is trying to connect.
-	 * @param in the DataInputStream for this client, to receive packets.
-	 * @param out the DataOutputStream for this client, to send packets.
-	 * @return the client's name if this client connected successfully, or null if the connection was denied
-	 * @throws IOException if in.readUTF() throws an exception
-	 */
-	public String onAttemptConnect(Socket s, BufferedInputStream in, BufferedOutputStream out) throws IOException
+	private SnakeList connectedClients = new SnakeList();
+
+	public boolean onClientConnect(Snake newClient) throws IOException
 	{
-		try
+		ClientInformation theirInfo = newClient.getSocketInfo();
+		String clientName = newClient.getClientName();
+		Socket s = theirInfo.socket;
+
+		System.out.println("Attempt Connect From -> " + clientName + " " + s.getInetAddress());
+
+		newClient.setDirectionBuffer(new ArrayList<>());
+
+		// Determine what the response will be
+		MessagePacket responsePacket = new MessagePacket("Server", "CONNECTION ACCEPT");
+		if (!isDuplicateClient(clientName) && !isServerFull() && !gameStarted)
 		{
-			// Read request packet
-			String rawUTF = new String(SegmentedData.receiveSegmentedData(in).getOriginalByteArray());
-			SnakeUpdatePacket clientRequestPacket = (SnakeUpdatePacket) Packet.parsePacket(rawUTF);
-			System.out.println("Server Received -> " + clientRequestPacket);
+			System.out.println("Server -> CONNECTION ACCEPT" );
+			send(responsePacket, newClient, true);
 
-			// Process request packet
-			SnakeData newClient = clientRequestPacket.getClientData();
-			String clientName = newClient.getClientName();
-			System.out.println("Attempt Connect From -> " + clientName + " " + s.getInetAddress());
-			newClient.setSocket(s);
-			newClient.setOutputStream(out);
-			newClient.setDirectionBuffer(new ArrayList<>());
+			PlayerSlot emptySlot = slots.getNextEmptySlot();
+			emptySlot.bindClient(newClient);
 
-			// Determine what the response will be
-			MessagePacket responsePacket = new MessagePacket("Server", "CONNECTION ACCEPT");
-			if (!isDuplicateClient(clientName) && !isServerFull() && !gameStarted)
+			connectedClients.add(newClient);
+			updateAllClients(true);
+
+			return true;
+		} 
+		else
+		{
+			if (gameStarted)
 			{
-				System.out.println("Server -> CONNECTION ACCEPT" );
-				// Send "CONNECTION ACCEPT" response
-				send(responsePacket, newClient, false);
-				// After client gets CONNECTION ACCEPT it sends its encryption key, so process key below
-				byte[] clientKey = SegmentedData.receiveSegmentedData(in).getOriginalByteArray();
-				// Assign a separate AsymmetricEncryptionTool to this client to send encrypted packets to them
-				SocketSecurityTool clientEncrypter = new SocketSecurityTool();
-				newClient.setEncrypter(clientEncrypter);
-				clientEncrypter.setPartnerKey(clientKey);
-
-				// After receiving client encryption key, send server encryption key to client to fully establish asym connection
-				serverDecrypter.sendPublicKey(out);
-
-				PlayerSlot emptySlot = slots.getNextEmptySlot();
-				emptySlot.bindClient(newClient);
-
-				connectedClients.add(newClient);
-				updateAllClients(true);
-
-				return newClient.getClientName();
-			} 
-			else
-			{
-				if (gameStarted)
-				{
-					responsePacket.setMessage("GAME ACTIVE");
-				}
-				else if (isServerFull())
-				{
-					responsePacket.setMessage("SERVER FULL");
-				}
-				else if (isDuplicateClient(clientName))
-				{
-					responsePacket.setMessage("NAME TAKEN");
-				}
-				send(responsePacket, newClient);
-				return null;
+				responsePacket.setMessage("GAME ACTIVE");
 			}
-		}
-		catch (ReceiveFailedException e)
-		{
-			return null;
+			else if (isServerFull())
+			{
+				responsePacket.setMessage("SERVER FULL");
+			}
+			else if (isDuplicateClient(clientName))
+			{
+				responsePacket.setMessage("NAME TAKEN");
+			}
+			send(responsePacket, newClient);
+			return false;
 		}
 	}
 
-	public class ReceiveFromClientThread extends Thread
+
+	public class ClientThread extends Thread
 	{
-		private boolean receiving = true;
+		private boolean receiving;
 
 		private String clientName;
 		private BufferedInputStream in;
-		private BufferedOutputStream out;
+		private Socket accepted;
 
-		public ReceiveFromClientThread(String clientName, BufferedInputStream in, BufferedOutputStream out)
+		public ClientThread(Socket accepted)
 		{
-			this.clientName = clientName;
-			this.in = in;
-			this.out = out;
+			this.accepted = accepted;
+			receiving = true;
 		}
 
 		@Override
 		public void run()
 		{
-			while (receiving)
+			try
 			{
-				try 
+				in = new BufferedInputStream(accepted.getInputStream());
+				SnakeUpdatePacket clientRequestPacket = (SnakeUpdatePacket) nextPacket(in);
+				
+				System.out.println("Server Received -> " + clientRequestPacket);
+				Snake newClient = clientRequestPacket.getClientData();
+				newClient.setPacketReceiveThread(this);
+				clientName = newClient.getClientName();
+				ClientInformation info = new ClientInformation();
+				info.link(newClient, accepted, in);
+				onClientConnect(newClient);
+				
+				while (receiving)
 				{
-					String received;
-					SegmentedData bytePacket = SegmentedData.receiveSegmentedData(in);
-					received = serverDecrypter.decryptString(bytePacket);
-					onReceive(received);
+					try 
+					{
+						onReceive(nextPacket(in));
+					}
+					catch (Exception e)
+					{
+						receiving = false;
+						System.out.println("Exception normal: tried to send data to " + clientName + " after their connection was closed.");
+					}
 				}
-				catch (Exception e)
+			}
+			catch (IOException | DecryptionFailedException | NotConnectedException | NoSuchAlgorithmException | InvalidKeySpecException e)
+			{
+				e.printStackTrace();
+				if (accepted != null)
 				{
-					receiving = false;
-					System.out.println("Exception normal: tried to send data to " + clientName + " after their connection was closed.");
+					try
+					{
+						accepted.close();
+					} 
+					catch (IOException e1) { }
 				}
 			}
 		}
@@ -288,70 +307,69 @@ public class Server
 	 * @param p the Packet that is being sent from the server
 	 * @param to the Client that this packet is being sent to
 	 */
-	public void send(Packet p, SnakeData to, boolean encrypting)
+	public synchronized void send(Packet p, Snake to, boolean encrypting)
 	{
-		// TODO rem
-		encrypting = true;
-		p.sendAsSecureData(to.getOutputStream(), (encrypting ? to.getEncrypter() : null));
+		try
+		{
+			sendPacket(p, to.getSocketInfo().out, encrypting ? to.getSocketInfo().key : null);
+		}
+		catch (EncryptionFailedException e)
+		{
+			e.printStackTrace();
+		}
 	}
 
-	public void send(Packet p, SnakeData to)
+	public void send(Packet p, Snake to)
 	{
 		send(p, to, true);
 	}
 
 	public void sendToAll(Packet p)
 	{
-		for (SnakeData dat : connectedClients)
+		for (Snake dat : connectedClients)
 		{
-			ThreadList threads = new ThreadList();
-			threads.joinThread(new Thread(() ->
-			{
-				send(p, dat);
-			}));
-			threads.startAndWait(0);
+			send(p, dat);
 		}
 	}
 
-	public void onReceive(String data) 
+	public void onReceive(Packet packetReceiving) 
 	{
-		Packet packetReceiving = Packet.parsePacket(data);
 		switch (packetReceiving.getClass().getSimpleName())
 		{
-		case "MessagePacket":
-			onReceiveMessagePacket((MessagePacket) packetReceiving);
-			break;
-		case "SnakeUpdatePacket":
-			onReceiveClientDataUpdate((SnakeUpdatePacket) packetReceiving);
-			break;
-		case "DirectionChangePacket":
-			onReceiveClientDirectionChangeRequest((DirectionChangePacket) packetReceiving);
-			break;
+			case "MessagePacket":
+				onReceiveMessagePacket((MessagePacket) packetReceiving);
+				break;
+			case "SnakeUpdatePacket":
+				onReceiveClientDataUpdate((SnakeUpdatePacket) packetReceiving);
+				break;
+			case "DirectionChangePacket":
+				onReceiveClientDirectionChangeRequest((DirectionChangePacket) packetReceiving);
+				break;
 		}
 	}
 
 	private void onReceiveMessagePacket(MessagePacket messagePacket)
 	{
-		SnakeData sender = connectedClients.get(messagePacket.getSender());
+		Snake sender = connectedClients.get(messagePacket.getSender());
 		switch (messagePacket.getMessage())
 		{
-		case "GAME START":
-			if (sender.isHost()) 
-			{
-				MessagePacket gameStartResponse = new MessagePacket("Server", "GAME START"); 
-				sendToAll(gameStartResponse);
-				onReceiveGameStartPacket();
-			}
-			break;
-		case "I EXIT":
-			onReceiveClientDisconnectRequest(sender);
-			break;
-		case "UPDATE ME":
-			updateClient(sender, true);
+			case "GAME START":
+				if (sender.isHost()) 
+				{
+					MessagePacket gameStartResponse = new MessagePacket("Server", "GAME START"); 
+					sendToAll(gameStartResponse);
+					onReceiveGameStartPacket();
+				}
+				break;
+			case "I EXIT":
+				onReceiveClientDisconnectRequest(sender);
+				break;
+			case "UPDATE ME":
+				updateClient(sender, true);
 		}
 	}
 
-	private void onReceiveClientDisconnectRequest(SnakeData quitter)
+	private void onReceiveClientDisconnectRequest(Snake quitter)
 	{
 		if (quitter.isHost())
 		{
@@ -378,7 +396,7 @@ public class Server
 
 	private void onReceiveClientDirectionChangeRequest(DirectionChangePacket pack)
 	{
-		SnakeData whoSent = connectedClients.get(pack.getSender());
+		Snake whoSent = connectedClients.get(pack.getSender());
 		ArrayList<Direction> keyBuffer = whoSent.getDirectionBuffer();
 
 		if (keyBuffer.size() <= 20)
@@ -413,7 +431,7 @@ public class Server
 
 	private Timer tickTimer; 
 	private int tickRate = 80; // 12.5 squares/sec
-	
+
 	private void onReceiveGameStartPacket()
 	{		
 		if (!gameStarted)
@@ -426,7 +444,7 @@ public class Server
 			InitiateGamePacket gameCounterPack = new InitiateGamePacket(initialDelay, gameStartDelay, numTicks);
 			sendToAll(gameCounterPack);
 
-			for (SnakeData client : connectedClients)
+			for (Snake client : connectedClients)
 			{
 				client.modifyFoodInBelly(37);
 			}
@@ -460,11 +478,11 @@ public class Server
 
 	private void doSnakeMovements()
 	{		
-		HashMap<SnakeData, Point> oldTailLocations = new HashMap<>();
+		HashMap<Snake, Point> oldTailLocations = new HashMap<>();
 
 		// Move each snake forward by one, store old tail location in HashMap. This is in a separate loop because ALL client
 		// positions must be updated before doing collision checks
-		for (SnakeData aClient : connectedClients)
+		for (Snake aClient : connectedClients)
 		{
 			if (aClient.isAlive())
 			{
@@ -486,23 +504,23 @@ public class Server
 		}
 
 		// Handle collision, fruit pickup/spawning, segment adding
-		for (SnakeData thisSnake : connectedClients)
+		for (Snake thisSnake : connectedClients)
 		{
 			if (thisSnake.isAlive())
 			{
 				Point head = thisSnake.getPointList(false).get(0);
 				boolean colliding = false;
 				SnakeList otherClients = new SnakeList();
-				for (SnakeData bClient : connectedClients)
+				for (Snake bClient : connectedClients)
 					if (!bClient.equals(thisSnake) && bClient.isAlive()) // Collision upon dead snakes does not occur
 						otherClients.add(bClient);
 
 				// If this Snake's head location intercepts any segment on any OTHER snake, it counts as a collision
-				SnakeData interceptingSnake = thisSnake;
+				Snake interceptingSnake = thisSnake;
 				int interceptingIndex = -1;
-				for (SnakeData otherClient : otherClients)
+				for (Snake otherClient : otherClients)
 				{
-					interceptingIndex = Server.getInterceptingIndexSpecificSnake(head, otherClient);
+					interceptingIndex = MPSServer.getInterceptingIndexSpecificSnake(head, otherClient);
 					if (interceptingIndex != -1)
 					{
 						interceptingSnake = otherClient;
@@ -523,7 +541,7 @@ public class Server
 					System.out.println("Collided but has hungry buffy");
 					colliding = false;
 					if (interceptingSnake == thisSnake)
-						interceptingIndex = Server.getInterceptingIndexSpecificSnake(head, thisSnake);
+						interceptingIndex = MPSServer.getInterceptingIndexSpecificSnake(head, thisSnake);
 
 					int howManyBitOff = interceptingSnake.getLength() - interceptingIndex;
 					System.out.println("howManyBitOff = " + howManyBitOff);
@@ -616,21 +634,21 @@ public class Server
 
 	private void updateAllClients(boolean sendPointList)
 	{
-		for (SnakeData client : connectedClients)
+		for (Snake client : connectedClients)
 		{
 			String[] excluding = sendPointList ? null : new String[] { "pointList" };
-			SnakeData clientClone = new SnakeData(ReflectionTools.fieldsToString(SnakeData.REGEX, client, SnakeData.class, excluding));
+			Snake clientClone = new Snake(ReflectionTools.fieldsToString(Snake.REGEX, client, Snake.class, excluding));
 			SnakeUpdatePacket updatePack = new SnakeUpdatePacket(clientClone);
 			sendToAll(updatePack);	
 		}
 	}
-	
-	private void updateClient(SnakeData updating, boolean sendPointList)
+
+	private void updateClient(Snake updating, boolean sendPointList)
 	{
-		for (SnakeData client : connectedClients)
+		for (Snake client : connectedClients)
 		{
 			String[] excluding = sendPointList ? null : new String[] { "pointList" };
-			SnakeData clientClone = new SnakeData(ReflectionTools.fieldsToString(SnakeData.REGEX, client, SnakeData.class, excluding));
+			Snake clientClone = new Snake(ReflectionTools.fieldsToString(Snake.REGEX, client, Snake.class, excluding));
 			SnakeUpdatePacket updatePack = new SnakeUpdatePacket(clientClone);
 			send(updatePack, updating);
 		}
@@ -664,7 +682,7 @@ public class Server
 				for (int x = 0; x < NUM_HORIZONTAL_UNITS; x++)
 					for (int y = 0; y < NUM_VERTICAL_SPACES; y++)
 						availableLocations.add(new Point(x, y));
-				for (SnakeData client : connectedClients)
+				for (Snake client : connectedClients)
 					availableLocations.removeAll(client.getPointList(false));
 				Point randomAvailableLoc = availableLocations.get(rand.nextInt(availableLocations.size()));
 				addedFruit = new Fruit(this, randomAvailableLoc);
@@ -689,7 +707,7 @@ public class Server
 	public int getCoveredArea()
 	{
 		int covered = 0;
-		for (SnakeData snake : connectedClients)
+		for (Snake snake : connectedClients)
 			covered += snake.getLength();
 		return covered;
 	}
@@ -736,7 +754,7 @@ public class Server
 	 */
 	public boolean hasInterceptingSnake(Point p)
 	{
-		for (SnakeData snake : connectedClients)
+		for (Snake snake : connectedClients)
 			if (interceptsSpecificSnake(p, snake))
 				return true;
 		return false;
@@ -748,7 +766,7 @@ public class Server
 	 * @param theSnake the client that the given point may be intercepting.
 	 * @return true if the given point exists in theSnake.getPointList().
 	 */
-	public static boolean interceptsSpecificSnake(Point point, SnakeData theSnake)
+	public static boolean interceptsSpecificSnake(Point point, Snake theSnake)
 	{
 		return getInterceptingIndexSpecificSnake(point, theSnake) != -1;
 	}
@@ -759,7 +777,7 @@ public class Server
 	 * @param theSnake the SnakeData (client) that the given point may potentially be intercepting.
 	 * @return -1 if this Point does not exist in theSnake.getPointList().
 	 */
-	public static int getInterceptingIndexSpecificSnake(Point point, SnakeData theSnake)
+	public static int getInterceptingIndexSpecificSnake(Point point, Snake theSnake)
 	{
 		int theIndex = -1;
 		int i = 0;
@@ -788,12 +806,12 @@ public class Server
 	 * removes the client from the {@link #connectedClients} list.
 	 * @param exiting the client that is exiting the game.
 	 */
-	private void closeConnection(SnakeData exiting)
+	private void closeConnection(Snake exiting)
 	{
 		exiting.getPacketReceiveThread().end();
 		try
 		{
-			exiting.getSocket().close();
+			exiting.getSocketInfo().socket.close();
 		}
 		catch (IOException e) { }
 		connectedClients.remove(exiting);
@@ -805,10 +823,10 @@ public class Server
 	 */
 	private void closeAllConnections()
 	{
-		ArrayList<SnakeData> copy = new ArrayList<>();
-		for (SnakeData dat : connectedClients) // Avoid ConcurrentModificationException here
+		ArrayList<Snake> copy = new ArrayList<>();
+		for (Snake dat : connectedClients) // Avoid ConcurrentModificationException here
 			copy.add(dat);
-		for (SnakeData dat : copy)
+		for (Snake dat : copy)
 			closeConnection(dat);
 	}
 
@@ -824,8 +842,8 @@ public class Server
 	public class PlayerSlot
 	{
 		private int slotNum;
-		private SnakeData connectedPlayer;
-		private SnakeData originalConfiguration;
+		private Snake connectedPlayer;
+		private Snake originalConfiguration;
 
 		public PlayerSlot(int playerNum)
 		{
@@ -833,7 +851,7 @@ public class Server
 			slots.add(this);
 		}
 
-		public void bindClient(SnakeData client)
+		public void bindClient(Snake client)
 		{
 			client.onSlotBind(this);
 			client.setColor(this.getSlotColor());
@@ -850,7 +868,7 @@ public class Server
 			connectedPlayer = null;
 		}
 
-		public SnakeData getConnectedPlayer()
+		public Snake getConnectedPlayer()
 		{
 			return connectedPlayer;
 		}
@@ -880,7 +898,7 @@ public class Server
 			return MultiplayerSnakeGame.getStartDirectionFromSlotNum(slotNum);
 		}
 
-		public SnakeData getOriginalConfiguration()
+		public Snake getOriginalConfiguration()
 		{
 			return originalConfiguration;
 		}

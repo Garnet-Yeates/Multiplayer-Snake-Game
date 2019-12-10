@@ -9,7 +9,7 @@ import edu.wit.yeatesg.mps.network.clientserver.GameplayGUI;
 import edu.wit.yeatesg.mps.otherdatatypes.Color;
 import edu.wit.yeatesg.mps.otherdatatypes.Point;
 import edu.wit.yeatesg.mps.otherdatatypes.PointList;
-import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
+import edu.wit.yeatesg.mps.otherdatatypes.Snake;
 import edu.wit.yeatesg.mps.otherdatatypes.Vector;
 
 import static edu.wit.yeatesg.mps.network.clientserver.MultiplayerSnakeGame.*;
@@ -20,7 +20,7 @@ public class DeadSnakeDrawScript extends SnakeDrawScript
 		
 	public static final int DURATION = 1000;
 	
-	public DeadSnakeDrawScript(GameplayGUI container, SnakeData who)
+	public DeadSnakeDrawScript(GameplayGUI container, Snake who)
 	{
 		super(container, who, DURATION);
 		System.out.println("new old fashioned dead dead");
@@ -35,7 +35,7 @@ public class DeadSnakeDrawScript extends SnakeDrawScript
 		start();
 	}
 	
-	public DeadSnakeDrawScript(GameplayGUI container, SnakeData who, PointList deadPoints)
+	public DeadSnakeDrawScript(GameplayGUI container, Snake who, PointList deadPoints)
 	{
 		super(container, who, DURATION);
 		int index = 0;

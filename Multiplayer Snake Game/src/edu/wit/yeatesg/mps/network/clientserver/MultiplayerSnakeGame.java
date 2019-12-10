@@ -1,10 +1,9 @@
 package edu.wit.yeatesg.mps.network.clientserver;
 
+import java.awt.EventQueue;
 import java.io.DataInputStream;
 import java.io.IOException;
 
-import edu.wit.yeatesg.mps.network.clientserver.NetworkClient.NotConnectedException;
-import edu.wit.yeatesg.mps.network.clientserver.NetworkClient.SocketClosedException;
 import edu.wit.yeatesg.mps.otherdatatypes.Color;
 import edu.wit.yeatesg.mps.otherdatatypes.Direction;
 import edu.wit.yeatesg.mps.otherdatatypes.Point;
@@ -15,12 +14,12 @@ public class MultiplayerSnakeGame
 {
 	public static void main(String[] args)
 	{
-		new Thread(() ->
+		EventQueue.invokeLater(() ->
 		{
 			new ConnectGUI();
-		}).start();
+		});
 	}
-	
+		
 	public static final int START_LENGTH = 3;
 
 	public static final int JAR_OFFSET_X = 9;

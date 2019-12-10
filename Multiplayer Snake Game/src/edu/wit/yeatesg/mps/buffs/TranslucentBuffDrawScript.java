@@ -5,13 +5,13 @@ import java.awt.Graphics;
 import edu.wit.yeatesg.mps.network.clientserver.GameplayGUI;
 import edu.wit.yeatesg.mps.otherdatatypes.Color;
 import edu.wit.yeatesg.mps.otherdatatypes.Point;
-import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
+import edu.wit.yeatesg.mps.otherdatatypes.Snake;
 
 import static edu.wit.yeatesg.mps.network.clientserver.MultiplayerSnakeGame.*;
 
 public class TranslucentBuffDrawScript extends SnakeDrawScript
 {
-	public TranslucentBuffDrawScript(GameplayGUI c, SnakeData who, int duration)
+	public TranslucentBuffDrawScript(GameplayGUI c, Snake who, int duration)
 	{
 		super(c, who, duration);
 		start();
@@ -29,6 +29,11 @@ public class TranslucentBuffDrawScript extends SnakeDrawScript
 
 		for (Point p : beingDrawn.getPointList(true))
 		{
+			int numExtraOccurrences = 0;
+			for (Point p2 : beingDrawn.getMultipleOccurancesList())
+				if (p2.equals(p))
+					numExtraOccurrences++;
+			
 			int drawX = GameplayGUI.getPixelCoord(p.getX());
 			int drawY = GameplayGUI.getPixelCoord(p.getY());	
 			int offset = 0;
@@ -37,6 +42,16 @@ public class TranslucentBuffDrawScript extends SnakeDrawScript
 			{
 				graphics.drawRect(drawX + offset, drawY + offset, drawSize - 2*offset - 1, drawSize - 2*offset - 1);
 				offset++;
+			}
+			
+			if (numExtraOccurrences > 0)
+			{
+				offset++;
+				for (int i = 0; i < numExtraOccurrences; i++)
+				{
+					graphics.drawRect(drawX + offset, drawY + offset, drawSize - 2*offset - 1, drawSize - 2*offset - 1);
+					offset+= 2;
+				}
 			}
 		}
 	}

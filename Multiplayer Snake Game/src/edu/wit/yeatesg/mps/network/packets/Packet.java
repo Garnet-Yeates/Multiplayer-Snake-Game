@@ -1,11 +1,6 @@
 package edu.wit.yeatesg.mps.network.packets;
-import java.io.BufferedOutputStream;
-import java.io.IOException;
-import edu.wit.yeatesg.mps.network.clientserver.SocketSecurityTool;
-import edu.wit.yeatesg.mps.network.clientserver.SocketSecurityTool.EncryptionFailedException;
 import edu.wit.yeatesg.mps.otherdatatypes.ReflectionTools;
 
-import static edu.wit.yeatesg.mps.network.clientserver.SocketSecurityTool.*;
 
 public abstract class Packet
 {
@@ -80,24 +75,6 @@ public abstract class Packet
 			System.out.println("\n\n\n\n\nNULL PACKET\n\n\n\n\n\n");
 		}
 		return pack;
-	}
-
-	public void sendAsSecureData(BufferedOutputStream outputStream, SocketSecurityTool encryptionTool)
-	{
-		try 
-		{
-			synchronized (outputStream)
-			{
-				String utf = getUTF();
-				SegmentedData secureData = encryptionTool != null ? encryptionTool.encryptString(utf, PARTNER) : new SegmentedData(utf.getBytes("UTF-8"), SocketSecurityTool.MAX_DATA_LENGTH);
-				secureData.send(outputStream);
-			}
-		}
-		catch (IOException | EncryptionFailedException e)
-		{ 
-			System.out.println("Packet.writeUTF failed due a(n) " + e.getClass().getSimpleName());
-		}
-	
 	}
 
 	public final String getUTF()

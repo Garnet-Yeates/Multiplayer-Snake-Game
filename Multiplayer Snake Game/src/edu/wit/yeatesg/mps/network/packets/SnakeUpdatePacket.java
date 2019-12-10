@@ -1,12 +1,12 @@
 package edu.wit.yeatesg.mps.network.packets;
 
-import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
+import edu.wit.yeatesg.mps.otherdatatypes.Snake;
 
 public class SnakeUpdatePacket extends Packet
 {
-	protected SnakeData data;
+	protected Snake data;
 
-	public SnakeUpdatePacket(SnakeData data)
+	public SnakeUpdatePacket(Snake data)
 	{
 		super(data.toString());
 		/*
@@ -28,10 +28,10 @@ public class SnakeUpdatePacket extends Packet
 	@Override
 	protected void initFromStringArray(String[] args)
 	{
-		data = new SnakeData(args[0]);
+		data = new Snake(args[0]);
 	}
 
-	public SnakeData getClientData()
+	public Snake getClientData()
 	{
 		return data;
 	}

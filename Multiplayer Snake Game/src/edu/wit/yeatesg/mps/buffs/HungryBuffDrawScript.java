@@ -7,7 +7,7 @@ import edu.wit.yeatesg.mps.network.clientserver.GameplayGUI;
 import edu.wit.yeatesg.mps.otherdatatypes.Color;
 import edu.wit.yeatesg.mps.otherdatatypes.Point;
 import edu.wit.yeatesg.mps.otherdatatypes.PointList;
-import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
+import edu.wit.yeatesg.mps.otherdatatypes.Snake;
 
 import static edu.wit.yeatesg.mps.network.clientserver.MultiplayerSnakeGame.*;
 
@@ -23,7 +23,7 @@ public class HungryBuffDrawScript extends SnakeDrawScript implements TickListene
 	public static final double HIGHLIGHT_ANIMATION_RATE = 2;
 	private int highlightColIndex = 0;
 	
-	public HungryBuffDrawScript(GameplayGUI container, SnakeData who, long duration)
+	public HungryBuffDrawScript(GameplayGUI container, Snake who, long duration)
 	{
 		super(container, who, duration);
 		
@@ -110,7 +110,7 @@ public class HungryBuffDrawScript extends SnakeDrawScript implements TickListene
 //		If the client whose hungry buff animation is being drawn is also the client that is drawing it, display the edible locations on the other snakes
 		if (drawingSelf)
 		{
-			for (SnakeData otherClient : drawingOn.getOtherClients())
+			for (Snake otherClient : drawingOn.getOtherClients())
 			{
 				if (otherClient.isAlive())
 				{

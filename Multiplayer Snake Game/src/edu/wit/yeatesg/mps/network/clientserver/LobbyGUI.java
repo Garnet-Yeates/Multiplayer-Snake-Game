@@ -1,17 +1,20 @@
 package edu.wit.yeatesg.mps.network.clientserver;
 
 import javax.swing.JPanel;
+import javax.swing.Timer;
 import javax.swing.JLabel;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.MatteBorder;
 
+import edu.wit.yeatesg.mps.network.clientserver.MPSClient.ClientListener;
 import edu.wit.yeatesg.mps.network.packets.MessagePacket;
 import edu.wit.yeatesg.mps.network.packets.Packet;
 import edu.wit.yeatesg.mps.network.packets.SnakeUpdatePacket;
 import edu.wit.yeatesg.mps.otherdatatypes.Color;
-import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
+import edu.wit.yeatesg.mps.otherdatatypes.Snake;
 import edu.wit.yeatesg.mps.otherdatatypes.SnakeList;
 
+import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.event.WindowEvent;
@@ -27,14 +30,14 @@ public class LobbyGUI extends JPanel implements ClientListener, WindowListener
 	private static final long serialVersionUID = 4339194739358327310L;
 
 	private SnakeList allClients;
-	private SnakeData thisClient;
+	private Snake thisClient;
 	private String thisClientName;
 	
-	private NetworkClient networkClient;
+	private MPSClient networkClient;
 	
 	private LobbyFrame frame;
 	
-	public LobbyGUI(String clientName, NetworkClient internal, int serverPort)
+	public LobbyGUI(String clientName, MPSClient internal, int serverPort)
 	{
 		frame = new LobbyFrame();
 		this.networkClient = internal;
@@ -42,20 +45,19 @@ public class LobbyGUI extends JPanel implements ClientListener, WindowListener
 		networkClient.startAutoReceiving();
 		thisClientName = clientName;	
 		allClients = new SnakeList();
-		ConnectGUI.setLookAndFeel();
+		//ConnectGUI.setLookAndFeel();
 	}
 
 	@Override
-	public void onAutoReceive(String data)
+	public void onAutoReceive(Packet packetReceiving)
 	{
-		Packet packetReceiving = Packet.parsePacket(data);
 		System.out.println(thisClientName + " Lobby Receive -> " + packetReceiving);
 		if (packetReceiving instanceof SnakeUpdatePacket)
 		{
 			allClients.updateBasedOn((SnakeUpdatePacket) packetReceiving);
 			if (allClients.didSomeoneJoinOnLastUpdate())
 			{
-				SnakeData whoJustJoined = allClients.getWhoJoinedOnLastUpdate();
+				Snake whoJustJoined = allClients.getWhoJoinedOnLastUpdate();
 				if (whoJustJoined.getClientName().equals(thisClientName))
 				{
 					thisClient = whoJustJoined;
@@ -98,11 +100,15 @@ public class LobbyGUI extends JPanel implements ClientListener, WindowListener
 
 	private void onDisconnectPress()
 	{
-		MessagePacket exitPacket = new MessagePacket(thisClientName, "I EXIT");
-		networkClient.send(exitPacket);
+		if (canDisconnect)
+		{
+			MessagePacket exitPacket = new MessagePacket(thisClientName, "I EXIT");
+			networkClient.send(exitPacket);
+			new Timer(1500, (e) -> System.exit(0)).start();
+		}
 	}
 	
-	private void onPlayerLeaveLobby(SnakeData whoLeft)
+	private void onPlayerLeaveLobby(Snake whoLeft)
 	{
 		PlayerSlot leaversPanel = slotList.getConnectedSlot(whoLeft);
 		leaversPanel.disconnectClient();
@@ -165,9 +171,9 @@ public class LobbyGUI extends JPanel implements ClientListener, WindowListener
 			contentPane.add(this);
 		}
 
-		private SnakeData connectedClient = null;
+		private Snake connectedClient = null;
 
-		public void connectClient(SnakeData clientData)
+		public void connectClient(Snake clientData)
 		{
 			connectedClient = clientData;
 			updatePanel();
@@ -184,7 +190,7 @@ public class LobbyGUI extends JPanel implements ClientListener, WindowListener
 			return connectedClient != null;
 		}
 
-		public SnakeData getConnectedClient()
+		public Snake getConnectedClient()
 		{
 			return connectedClient;
 		}
@@ -241,7 +247,7 @@ public class LobbyGUI extends JPanel implements ClientListener, WindowListener
 	{
 		private static final long serialVersionUID = 4989139048216644782L;
 	
-		public PlayerSlot getConnectedSlot(SnakeData client)
+		public PlayerSlot getConnectedSlot(Snake client)
 		{
 			for (PlayerSlot panel : this)
 				if (client.equals(panel.getConnectedClient()))
@@ -261,6 +267,8 @@ public class LobbyGUI extends JPanel implements ClientListener, WindowListener
 	// Frame stuff
 	
 	private JButton button_startGame;
+	
+	private boolean canDisconnect;
 	
 	public class LobbyFrame extends JFrame
 	{
@@ -304,6 +312,15 @@ public class LobbyGUI extends JPanel implements ClientListener, WindowListener
 			button_disconnect.setForeground(Color.BLACK);
 			button_disconnect.setBackground(Color.BLACK);
 			button_disconnect.setBounds(button_startGame.getX() + PlayerSlot.GAP + button_startGame.getWidth(), button_startGame.getY(), PlayerSlot.WIDTH, 25);
+			button_disconnect.setEnabled(false);
+			Timer enableDisconnect = new Timer(1000, (e) ->
+			{
+				canDisconnect = true;
+				button_disconnect.setEnabled(true);
+				button_disconnect.requestFocus();
+			});
+			enableDisconnect.setRepeats(false);
+			enableDisconnect.start();
 			this.add(button_disconnect);
 			setVisible(true);
 		}

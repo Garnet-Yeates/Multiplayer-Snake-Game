@@ -6,9 +6,9 @@ import java.util.ArrayList;
 import java.util.Random;
 
 import edu.wit.yeatesg.mps.network.clientserver.GameplayGUI;
-import edu.wit.yeatesg.mps.network.clientserver.Server;
+import edu.wit.yeatesg.mps.network.clientserver.MPSServer;
 import edu.wit.yeatesg.mps.otherdatatypes.Point;
-import edu.wit.yeatesg.mps.otherdatatypes.SnakeData;
+import edu.wit.yeatesg.mps.otherdatatypes.Snake;
 
 import static edu.wit.yeatesg.mps.network.clientserver.MultiplayerSnakeGame.*;
 
@@ -28,7 +28,7 @@ public class Fruit
 		this.location = location;
 	}
 	
-	public Fruit(Server creating, Point theoreticalFruitLoc)
+	public Fruit(MPSServer creating, Point theoreticalFruitLoc)
 	{
 		this.location = theoreticalFruitLoc;
 		Random rand = new Random();

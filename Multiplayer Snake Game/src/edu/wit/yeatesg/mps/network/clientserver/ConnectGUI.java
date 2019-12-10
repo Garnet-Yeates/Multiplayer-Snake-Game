@@ -11,15 +11,16 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
+import javax.swing.Timer;
 import javax.swing.UIManager;
 import javax.swing.UIManager.LookAndFeelInfo;
 import javax.swing.border.EmptyBorder;
 
-import edu.wit.yeatesg.mps.network.clientserver.NetworkClient.ActiveGameException;
-import edu.wit.yeatesg.mps.network.clientserver.NetworkClient.ConnectionFailedException;
-import edu.wit.yeatesg.mps.network.clientserver.NetworkClient.DuplicateNameException;
-import edu.wit.yeatesg.mps.network.clientserver.NetworkClient.ServerFullException;
-import edu.wit.yeatesg.mps.network.clientserver.Server.ServerStartFailedException;
+import edu.wit.yeatesg.mps.network.clientserver.MPSClient.ActiveGameException;
+import edu.wit.yeatesg.mps.network.clientserver.MPSClient.ConnectionFailedException;
+import edu.wit.yeatesg.mps.network.clientserver.MPSClient.DuplicateNameException;
+import edu.wit.yeatesg.mps.network.clientserver.MPSClient.ServerFullException;
+import edu.wit.yeatesg.mps.network.clientserver.MPSServer.ServerStartFailedException;
 import edu.wit.yeatesg.mps.network.packets.Packet;
 
 import static edu.wit.yeatesg.mps.network.clientserver.MultiplayerSnakeGame.*;
@@ -28,20 +29,20 @@ import static edu.wit.yeatesg.mps.network.clientserver.MultiplayerSnakeGame.*;
 
 public class ConnectGUI extends JPanel
 {
-	private static final long serialVersionUID = 1L;
+	private static final long serialVersionUID = -3847544782116562853L;
 
-	private NetworkClient internalClient;
-	
+	private MPSClient internalClient;
+
 	private ConnectFrame frame;
-	
+
 	public ConnectGUI(String defaultClientName)
 	{
 		frame = new ConnectFrame();
-		internalClient = new NetworkClient(defaultClientName);
+		internalClient = new MPSClient(defaultClientName);
 		setLookAndFeel();
 		frame.setVisible(true);
 	}
-	
+
 	public ConnectGUI()
 	{
 		this(null);
@@ -49,14 +50,34 @@ public class ConnectGUI extends JPanel
 
 	private void onButtonPress(boolean isHost)
 	{
-		if (isHost)
-			field_ip.setText("localhost");
-		label_statusMessage.setForeground(new Color(0, 160, 0));
-		label_statusMessage.setText(isHost ? "Creating Server.." : "Connecting...");
-		EventQueue.invokeLater(() -> attemptConnect(isHost)); // Make sure the label says "Connecting" before the thread freezes waiting to connect
+		if (btn_Connect.isEnabled())
+		{
+			if (isHost)
+				field_ip.setText("localhost");
+			label_statusMessage.setForeground(new Color(0, 160, 0));
+			label_statusMessage.setText(isHost ? "Creating Server......" : "Connecting...");
+
+			disableButtons(1500);
+
+			Thread attemptConnectThread = new Thread(() -> attemptConnect(isHost));
+			attemptConnectThread.setDaemon(true);
+			attemptConnectThread.start();
+		}	
 	}
 
-	private Server server;
+	private void disableButtons(int forHowLong)
+	{
+		btn_Connect.setEnabled(false);
+		btn_Host.setFocusable(false);
+		Timer enableConnect = new Timer(forHowLong, (e) -> btn_Connect.setEnabled(true));
+		Timer enableHost = new Timer(forHowLong + 1500, (e) -> btn_Host.setFocusable(true));
+		enableConnect.setRepeats(false);
+		enableHost.setRepeats(false);
+		enableConnect.start();
+		enableHost.start();
+	}
+
+	private MPSServer server;
 
 	private void attemptConnect(boolean isHost)
 	{
@@ -73,17 +94,20 @@ public class ConnectGUI extends JPanel
 
 			int port = Integer.parseInt(field_port.getText());
 
-			server = isHost ? (server == null ? new Server(port) : server) : null;		
-			
+			server = isHost ? (server == null ? new MPSServer(port) : server) : null;		
+
 			if (server != null) // This client wants to host the game
 				server.start();
-			
+
 			internalClient.setName(field_name.getText());
-			
+
 			// Inputs are not erroneous, try to connect
 
-			if (internalClient.attemptConnect(field_ip.getText(), port, isHost))
-				frame.dispose();
+			boolean b = internalClient.attemptConnect(field_ip.getText(), port, isHost);
+
+			if (b)
+				EventQueue.invokeLater(() -> frame.dispose());
+
 		}
 		catch (ServerStartFailedException | InvalidInputException | ConnectionFailedException | ServerFullException | ActiveGameException | DuplicateNameException e)
 		{
@@ -93,32 +117,7 @@ public class ConnectGUI extends JPanel
 		}
 		btn_Host.setEnabled(true);
 	}
-	
-	/**
-	 * Checked exception for when the user input in one of the text fields of the ConnectGUI is invalid
-	 * (i.e they typed a String for the port, or their name is invalid)
-	 * @author yeatesg
-	 */
-	private static class InvalidInputException extends Exception
-	{
-		private static final long serialVersionUID = 8969837391732888398L;
-		
-		private String message;
-		
-		private InvalidInputException(String message)
-		{
-			this.message = message;
-		}
-		
-		@Override
-		public String getMessage()
-		{
-			return message;
-		}
-	}
-	
-	private int numPacketsSent;
-		
+
 	private JTextField field_ip;
 	private JTextField field_port;
 	private JTextField field_name;
@@ -126,23 +125,10 @@ public class ConnectGUI extends JPanel
 	private JButton btn_Connect;
 	private JButton btn_Host;
 
-	public static void setLookAndFeel()
-	{
-		try
-		{
-			LookAndFeelInfo[] feels = UIManager.getInstalledLookAndFeels();
-			UIManager.setLookAndFeel(feels[3].getClassName());
-		} 
-		catch (Exception e)
-		{
-			e.printStackTrace();
-		}
-	}
-	
 	private class ConnectFrame extends JFrame
 	{
 		private static final long serialVersionUID = 5135113137603592910L;
-		
+
 		public ConnectFrame()
 		{
 			setResizable(false);
@@ -155,33 +141,24 @@ public class ConnectGUI extends JPanel
 			field_ip = new JTextField();
 			field_ip.setHorizontalAlignment(SwingConstants.LEFT);
 			field_ip.setBounds(10, 29, 96, 20);
-			ConnectGUI.this.add(field_ip);
 			field_ip.setColumns(10);
 			field_ip.setText("localhost");
+			field_ip.addKeyListener(new TextFieldKeyListener(field_ip));
+			ConnectGUI.this.add(field_ip);
 
 			field_port = new JTextField();
 			field_port.setHorizontalAlignment(SwingConstants.LEFT);
 			field_port.setColumns(10);
 			field_port.setBounds(112, 29, 48, 20);
 			field_port.setText("8122");
+			field_port.addKeyListener(new TextFieldKeyListener(field_port));
 			ConnectGUI.this.add(field_port);
 
 			field_name = new JTextField();
 			field_name.setText("Nom");
 			field_name.setColumns(10);
 			field_name.setBounds(10, 70, 150, 20);
-			field_name.addKeyListener(new KeyListener() 
-			{
-				@Override
-				public void keyTyped(KeyEvent e)
-				{
-					if (field_name.getText().length() >= MAX_NAME_LENGTH)
-						e.consume();
-				}
-				
-				public void keyReleased(KeyEvent e) { }
-				public void keyPressed(KeyEvent e) { }
-			});
+			field_name.addKeyListener(new TextFieldKeyListener(field_name));
 			ConnectGUI.this.add(field_name);
 
 			JLabel label_name = new JLabel("Name");
@@ -213,6 +190,83 @@ public class ConnectGUI extends JPanel
 			btn_Host.setBounds(10, 101, 61, 23);
 			btn_Host.addActionListener((e) -> onButtonPress(true));
 			ConnectGUI.this.add(btn_Host);			
+		}
+	}
+
+	private class TextFieldKeyListener implements KeyListener
+	{
+		private JTextField typingOn;
+
+		public TextFieldKeyListener(JTextField typingOn)
+		{
+			this.typingOn = typingOn;
+		}
+
+		@Override
+		public void keyPressed(KeyEvent e)
+		{			
+			if (e.getKeyCode() == KeyEvent.VK_ENTER)
+				if (btn_Connect.isEnabled())
+					onButtonPress(false);				
+		}
+
+		public void keyTyped(KeyEvent e)
+		{
+			if (typingOn == field_name && typingOn.getText().length() >= MAX_NAME_LENGTH)	
+			{
+				e.consume();
+				typingOn.setText(typingOn.getText().substring(0, MAX_NAME_LENGTH));
+			}
+			else if (typingOn == field_port)
+			{
+				if (typingOn.getText().length() >= 5)
+				{
+					e.consume();
+					typingOn.setText(typingOn.getText().substring(0, 5));
+				}
+				else if (!Character.isDigit(e.getKeyChar()))
+				{
+					e.consume();
+				}
+			}
+		}
+		public void keyReleased(KeyEvent arg0) { }
+	}
+
+
+	public static void setLookAndFeel()
+	{
+		try
+		{
+			LookAndFeelInfo[] feels = UIManager.getInstalledLookAndFeels();
+			UIManager.setLookAndFeel(feels[3].getClassName());
+		} 
+		catch (Exception e)
+		{
+			e.printStackTrace();
+		}
+	}
+
+	/**
+	 * Checked exception for when the user input in one of the text fields of the ConnectGUI is invalid
+	 * (i.e they typed a String for the port, or their name is invalid)
+	 * @author yeatesg
+	 */
+	private static class InvalidInputException extends Exception
+	{
+		private static final long serialVersionUID = 8969837391732888398L;
+
+		private String message;
+
+		private InvalidInputException(String message)
+		{
+			this.message = message;
+		}
+
+		@Override
+		public String getMessage()
+		{
+			return message;
 		}
 	}
 }

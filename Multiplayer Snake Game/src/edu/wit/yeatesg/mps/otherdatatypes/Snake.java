@@ -1,6 +1,7 @@
 package edu.wit.yeatesg.mps.otherdatatypes;
 
 import java.awt.Graphics;
+import java.awt.PointerInfo;
 import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.lang.reflect.Field;
@@ -15,18 +16,18 @@ import edu.wit.yeatesg.mps.buffs.BuffType;
 import edu.wit.yeatesg.mps.buffs.Fruit;
 import edu.wit.yeatesg.mps.buffs.HungryBuffDrawScript;
 import edu.wit.yeatesg.mps.network.clientserver.GameplayGUI;
-import edu.wit.yeatesg.mps.network.clientserver.Server.PlayerSlot;
-import edu.wit.yeatesg.mps.network.clientserver.Server.ReceiveFromClientThread;
-import edu.wit.yeatesg.mps.network.clientserver.SocketSecurityTool;
+import edu.wit.yeatesg.mps.network.clientserver.MPSServer.ClientInformation;
+import edu.wit.yeatesg.mps.network.clientserver.MPSServer.ClientThread;
+import edu.wit.yeatesg.mps.network.clientserver.MPSServer.PlayerSlot;
 import edu.wit.yeatesg.mps.network.packets.SnakeUpdatePacket;
 
 import static edu.wit.yeatesg.mps.network.clientserver.MultiplayerSnakeGame.*;
 
-public class SnakeData
+public class Snake
 {
 	public static final String REGEX = ":";
 
-	public SnakeData(String name, Color color, Direction direction, PointList pointList, boolean isHost, boolean isAlive, boolean addingSegment, int playerNum)
+	public Snake(String name, Color color, Direction direction, PointList pointList, boolean isHost, boolean isAlive, boolean addingSegment, int playerNum)
 	{
 		this.name = name;
 		this.color = color;
@@ -38,7 +39,7 @@ public class SnakeData
 		this.playerNum = playerNum;
 	}
 
-	public SnakeData(String... params)
+	public Snake(String... params)
 	{
 		name = params[0];
 		color = Color.fromString(params[1]);
@@ -50,7 +51,7 @@ public class SnakeData
 		playerNum = Integer.parseInt(params[7]);
 	}
 
-	public SnakeData()
+	public Snake()
 	{
 		name = "null";
 		color = Color.BLACK;
@@ -62,7 +63,7 @@ public class SnakeData
 		playerNum = -1;
 	}
 
-	public SnakeData(String splittableString)
+	public Snake(String splittableString)
 	{
 		this(splittableString.split(REGEX));
 	}
@@ -79,14 +80,21 @@ public class SnakeData
 	private boolean isAddingSegment;
 	private int playerNum;
 
+	private PointList $multipleOccurances = new PointList();
+	
+	public PointList getMultipleOccurancesList()
+	{
+		return $multipleOccurances;
+	}
+	
 	// Remember snakes keep getting updated after they die. might wanna do smthing abt that (maybe) (potentially)
 	public void updateBasedOn(SnakeUpdatePacket pack)
 	{
-		SnakeData updated = pack.getClientData();
+		Snake updated = pack.getClientData();
 
 		boolean receivingPointList = true;
 
-		ArrayList<Field> fieldsToTransfer = ReflectionTools.getFieldsThatUpdate(SnakeData.class);
+		ArrayList<Field> fieldsToTransfer = ReflectionTools.getFieldsThatUpdate(Snake.class);
 		for (int i = 0; i < fieldsToTransfer.size(); i++)
 		{       // Update the fields of this object with the corresponding fields of the updated
 			try // SnakeData object. Don't update fields that begin with $
@@ -112,12 +120,19 @@ public class SnakeData
 			Point head = oldHead.addVector(direction.getVector());
 			head = GameplayGUI.keepInBounds(head);
 
+			if (pointList.contains(head))
+				$multipleOccurances.add(head);
 			pointList.add(0, head);
 
 			if (isAddingSegment)
 				isAddingSegment = false;
 			else
-				pointList.remove(pointList.size() - 1);
+			{
+				// Remove from multiple occurrences just in case it is in there
+				$multipleOccurances.remove(pointList.get(pointList.size() - 1));
+				pointList.remove(pointList.size() - 1);	
+			}
+				
 			this.pointList = pointList;
 		}
 	}
@@ -207,19 +222,19 @@ public class SnakeData
 	@Override
 	public boolean equals(Object obj)
 	{
-		return obj instanceof SnakeData && ((SnakeData) obj).getClientName().equalsIgnoreCase(name);
+		return obj instanceof Snake && ((Snake) obj).getClientName().equalsIgnoreCase(name);
 	}
 
 	@Override
 	public String toString()
 	{
-		return ReflectionTools.fieldsToString(REGEX, this, SnakeData.class);
+		return ReflectionTools.fieldsToString(REGEX, this, Snake.class);
 	}
 
 	@Override
-	public SnakeData clone()
+	public Snake clone()
 	{
-		return new SnakeData(toString());
+		return new Snake(toString());
 	}
 
 	public void setPointList(PointList pointList)
@@ -244,16 +259,24 @@ public class SnakeData
 	// Server side fields and methods, not updated when updateBasedOn(SnakeUpdatePacket pack) is called
 	// on the client side of this SnakeData, all of these fields will be null
 
-	private SocketSecurityTool $encrypter;
-	private BufferedOutputStream $outputStream;
-	private Socket $socket;
+	private ClientInformation $socketInfo;
 	private ArrayList<Direction> $directionBuffer;
 	private boolean $buffTranslucentActive;
 	private boolean $buffHungryActive;
 	private int $foodInBelly;
 	private PlayerSlot $playerSlot;
-	private ReceiveFromClientThread $threadForServer;
+	private ClientThread $threadForServer;
 
+	public void setSocketInfo(ClientInformation info)
+	{
+		$socketInfo = info;
+	}
+	
+	public ClientInformation getSocketInfo()
+	{
+		return $socketInfo;
+	}
+	
 	private Timer $removeBuffTimer;
 
 	public void grantBuff(BuffType buff)
@@ -342,41 +365,6 @@ public class SnakeData
 		return $directionBuffer;
 	}
 
-	public SocketSecurityTool getEncrypter()
-	{
-		return $encrypter;
-	}
-
-	public void setEncrypter(SocketSecurityTool encrypter)
-	{
-		$encrypter = encrypter;
-	}
-
-	public boolean hasOutputStream()
-	{
-		return $outputStream != null;
-	}
-
-	public BufferedOutputStream getOutputStream()
-	{
-		return $outputStream;
-	}
-
-	public void setOutputStream(BufferedOutputStream out)
-	{
-		$outputStream = out;
-	}
-
-	public Socket getSocket()
-	{
-		return $socket;
-	}
-
-	public void setSocket(Socket socket)
-	{
-		$socket = socket;
-	}
-
 	public void onSlotBind(PlayerSlot playerSlot)
 	{
 		$playerSlot = playerSlot;
@@ -393,12 +381,12 @@ public class SnakeData
 		return $playerSlot;
 	}
 	
-	public void setPacketReceiveThread(ReceiveFromClientThread receiveThread)
+	public void setPacketReceiveThread(ClientThread receiveThread)
 	{
 		$threadForServer = receiveThread;
 	}
 	
-	public ReceiveFromClientThread getPacketReceiveThread()
+	public ClientThread getPacketReceiveThread()
 	{
 		return $threadForServer;
 	}
@@ -463,6 +451,11 @@ public class SnakeData
 		if ($currentDrawScript == null && isAlive)
 			drawSnakeNormally(g, drawingOn);
 	}
+	
+	private boolean occursMoreThanOnce(Point p)
+	{
+		return $multipleOccurances.contains(p);
+	}
 
 	public void drawSnakeNormally(Graphics g, GameplayGUI drawingOn)
 	{
@@ -478,7 +471,7 @@ public class SnakeData
 			{
 				Point drawCoords = GameplayGUI.getPixelCoords(segmentLoc);
 				g.setColor(color);
-				if (getOccurrenceOf(segmentLoc) > 1)
+				if (occursMoreThanOnce(segmentLoc))
 				{
 					int outlineThickness = (int) (MAX_OUTLINE_THICKNESS*0.65);
 					int offset = 0;
