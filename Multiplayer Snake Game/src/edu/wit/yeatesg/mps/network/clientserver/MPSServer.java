@@ -136,7 +136,6 @@ public class MPSServer extends SecureSocket
 			if (ENCRYPT_ENABLED)
 			{
 				byte[] encodedKey = nextSecureBytes(in);
-				System.out.println("about to trade keyskeys");
 				PublicKey clientKey = publicKeyFromEncoded(encodedKey);
 				sendPublicKey(out);
 				return clientKey;
