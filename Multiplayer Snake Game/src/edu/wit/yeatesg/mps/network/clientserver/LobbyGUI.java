@@ -45,7 +45,7 @@ public class LobbyGUI extends JPanel implements ClientListener, WindowListener
 		networkClient.startAutoReceiving();
 		thisClientName = clientName;	
 		allClients = new SnakeList();
-		//ConnectGUI.setLookAndFeel();
+		frame.setVisible(true);
 	}
 
 	@Override
@@ -102,6 +102,7 @@ public class LobbyGUI extends JPanel implements ClientListener, WindowListener
 	{
 		if (canDisconnect)
 		{
+			canDisconnect = false;
 			MessagePacket exitPacket = new MessagePacket(thisClientName, "I EXIT");
 			networkClient.send(exitPacket);
 			new Timer(1500, (e) -> System.exit(0)).start();
@@ -322,7 +323,6 @@ public class LobbyGUI extends JPanel implements ClientListener, WindowListener
 			enableDisconnect.setRepeats(false);
 			enableDisconnect.start();
 			this.add(button_disconnect);
-			setVisible(true);
 		}
 	}
 }

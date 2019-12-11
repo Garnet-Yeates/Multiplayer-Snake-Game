@@ -62,6 +62,7 @@ public abstract class SecureSocket
 			KeyPair pair = keyGen.generateKeyPair();
 			secretDecryptionKey = pair.getPrivate();
 			myEncryptionKey = pair.getPublic();
+			System.out.println(myEncryptionKey.getEncoded().length);
 		}
 		catch (Exception e)
 		{

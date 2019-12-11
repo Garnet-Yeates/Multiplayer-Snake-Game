@@ -4,6 +4,8 @@ import java.awt.EventQueue;
 import java.io.DataInputStream;
 import java.io.IOException;
 
+import javax.swing.UIManager;
+
 import edu.wit.yeatesg.mps.otherdatatypes.Color;
 import edu.wit.yeatesg.mps.otherdatatypes.Direction;
 import edu.wit.yeatesg.mps.otherdatatypes.Point;
@@ -16,6 +18,7 @@ public class MultiplayerSnakeGame
 	{
 		EventQueue.invokeLater(() ->
 		{
+			setLookAndFeel();
 			new ConnectGUI();
 		});
 	}
@@ -104,4 +107,21 @@ public class MultiplayerSnakeGame
 			return null;
 		}
 	}
+	
+	public static void setLookAndFeel()
+	{
+		EventQueue.invokeLater(() ->
+		{
+			try
+			{
+				UIManager.setLookAndFeel("com.sun.java.swing.plaf.windows.WindowsLookAndFeel");
+			} 
+			catch (Exception e)
+			{
+				e.printStackTrace();
+			}
+		});
+	}
+	
+	
 }

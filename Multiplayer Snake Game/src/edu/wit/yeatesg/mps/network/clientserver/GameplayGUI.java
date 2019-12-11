@@ -145,15 +145,7 @@ public class GameplayGUI extends JPanel implements ClientListener, KeyListener, 
 		Snake bitBy = allClients.get(packetReceiving.getBiting());
 		bitBy.endBuffDrawScriptEarly();
 		bitten.endBuffDrawScriptEarly();
-		PointList bitOff = packetReceiving.getBitOff();
-		PointList bittenPointsClone = bitten.getPointList(true);
-		for (int i = 0; i < bitOff.size(); i++)
-		{
-			Point removing = bittenPointsClone.get(bittenPointsClone.size() - 1);
-			bittenPointsClone.remove(bittenPointsClone.get(bittenPointsClone.size() - 1));
-			bitten.getMultipleOccurancesList().remove(removing);
-		}
-		bitten.setPointList(bittenPointsClone);
+		PointList bitOff = packetReceiving.getBitOff();	
 		new SnakeBiteDrawScript(this, bitten, bitOff);
 	}
 
@@ -434,7 +426,6 @@ public class GameplayGUI extends JPanel implements ClientListener, KeyListener, 
 		{
 			setTitle(thisClient.getClientName());
 			setContentPane(GameplayGUI.this);
-			ConnectGUI.setLookAndFeel();
 			setBounds(0, 0, MultiplayerSnakeGame.WIDTH + 6, MultiplayerSnakeGame.HEIGHT + 29);
 			setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 			setResizable(false);

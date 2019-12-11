@@ -37,7 +37,7 @@ public class Fruit
 		for (FruitType type : FruitType.values())
 			possibleTypes.add(type);
 		
-		if (creating.getCoveredArea() < 350)
+		if (creating.getCoveredArea() < 0)
 			possibleTypes.remove(FruitType.FRUIT_HUNGRY);
 		
 		for (FruitType type : possibleTypes)

@@ -80,13 +80,13 @@ public class Snake
 	private boolean isAddingSegment;
 	private int playerNum;
 
-	private PointList $multipleOccurances = new PointList();
-	
+	private PointList $multipleOccurrences = new PointList();
+
 	public PointList getMultipleOccurancesList()
 	{
-		return $multipleOccurances;
+		return $multipleOccurrences;
 	}
-	
+
 	// Remember snakes keep getting updated after they die. might wanna do smthing abt that (maybe) (potentially)
 	public void updateBasedOn(SnakeUpdatePacket pack)
 	{
@@ -112,28 +112,40 @@ public class Snake
 				e.printStackTrace();
 			}
 		}
-		
-		if (!receivingPointList && isAlive) // Move the snake if the pointList is null (move it on the client for efficiency)
+
+		if (isAlive)
 		{
-			PointList pointList = this.pointList.clone(); 
-			Point oldHead = pointList.get(0);
-			Point head = oldHead.addVector(direction.getVector());
-			head = GameplayGUI.keepInBounds(head);
+			if (!receivingPointList)
+			{
+				PointList pointList = this.pointList.clone(); 
+				Point oldHead = pointList.get(0);
+				Point head = oldHead.addVector(direction.getVector());
+				head = GameplayGUI.keepInBounds(head);
 
-			if (pointList.contains(head))
-				$multipleOccurances.add(head);
-			pointList.add(0, head);
+				if (pointList.contains(head))
+					$multipleOccurrences.add(head);
+				pointList.add(0, head);
 
-			if (isAddingSegment)
-				isAddingSegment = false;
+				if (isAddingSegment)
+					isAddingSegment = false;
+				else
+				{
+					// Remove from multiple occurrences just in case it is in there
+					System.out.println("did a point removed from mult occur?: " + $multipleOccurrences.remove(pointList.get(pointList.size() - 1)));
+					pointList.remove(pointList.size() - 1);	
+				}
+
+				this.pointList = pointList;
+				System.out.println(pointList.size());
+			}
 			else
 			{
-				// Remove from multiple occurrences just in case it is in there
-				$multipleOccurances.remove(pointList.get(pointList.size() - 1));
-				pointList.remove(pointList.size() - 1);	
+				$multipleOccurrences.clear();
+				for (Point p : pointList)
+					if (!$multipleOccurrences.contains(p))
+						for (int numOccurrs = getOccurrenceOf(p), i = 0; i < numOccurrs - 1; i++)
+							$multipleOccurrences.add(p);
 			}
-				
-			this.pointList = pointList;
 		}
 	}
 
@@ -271,12 +283,12 @@ public class Snake
 	{
 		$socketInfo = info;
 	}
-	
+
 	public ClientInformation getSocketInfo()
 	{
 		return $socketInfo;
 	}
-	
+
 	private Timer $removeBuffTimer;
 
 	public void grantBuff(BuffType buff)
@@ -285,16 +297,16 @@ public class Snake
 		$removeBuffTimer.setRepeats(false);
 		switch (buff)
 		{
-		case BUFF_TRANSLUCENT:
-			$buffTranslucentActive = true;
-			$removeBuffTimer.addActionListener((e) -> $buffTranslucentActive = false );
-			break;
-		case BUFF_HUNGRY:
-			$buffHungryActive = true;
-			$removeBuffTimer.addActionListener((e) -> { $buffHungryActive = false; System.out.println("buff ran out"); } );
-			break;
-		default:
-			break;
+			case BUFF_TRANSLUCENT:
+				$buffTranslucentActive = true;
+				$removeBuffTimer.addActionListener((e) -> $buffTranslucentActive = false );
+				break;
+			case BUFF_HUNGRY:
+				$buffHungryActive = true;
+				$removeBuffTimer.addActionListener((e) -> { $buffHungryActive = false; System.out.println("buff ran out"); } );
+				break;
+			default:
+				break;
 		}
 		$removeBuffTimer.start();
 	}
@@ -349,7 +361,7 @@ public class Snake
 	{
 		$foodInBelly += byHowMuch;
 	}
-	
+
 	public int getFoodInBelly()
 	{
 		return $foodInBelly;
@@ -380,12 +392,12 @@ public class Snake
 	{
 		return $playerSlot;
 	}
-	
+
 	public void setPacketReceiveThread(ClientThread receiveThread)
 	{
 		$threadForServer = receiveThread;
 	}
-	
+
 	public ClientThread getPacketReceiveThread()
 	{
 		return $threadForServer;
@@ -451,10 +463,10 @@ public class Snake
 		if ($currentDrawScript == null && isAlive)
 			drawSnakeNormally(g, drawingOn);
 	}
-	
+
 	private boolean occursMoreThanOnce(Point p)
 	{
-		return $multipleOccurances.contains(p);
+		return $multipleOccurrences.contains(p);
 	}
 
 	public void drawSnakeNormally(Graphics g, GameplayGUI drawingOn)

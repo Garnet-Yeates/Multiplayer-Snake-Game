@@ -452,6 +452,7 @@ public class MPSServer extends SecureSocket
 			spawnRandomFruit();
 			spawnRandomFruit();
 			spawnRandomFruit();
+			spawnRandomFruit();
 
 			// Start the timer after gameStartDelay and start the game ticks
 			tickTimer = new Timer(tickRate, (e) -> onTick());
@@ -469,16 +470,15 @@ public class MPSServer extends SecureSocket
 	private void onTick()
 	{
 		doSnakeMovements();
-		updateAllClients(false);
 		MessagePacket tickPacket = new MessagePacket("Server", "SERVER TICK");
 		sendToAll(tickPacket);
-		tickNum++;
+//		tickNum++;
 	}
 
 	private void doSnakeMovements()
 	{		
 		HashMap<Snake, Point> oldTailLocations = new HashMap<>();
-
+		
 		// Move each snake forward by one, store old tail location in HashMap. This is in a separate loop because ALL client
 		// positions must be updated before doing collision checks
 		for (Snake aClient : connectedClients)
@@ -501,6 +501,9 @@ public class MPSServer extends SecureSocket
 				aClient.setPointList(points);
 			}
 		}
+		
+		boolean sendPointList = false;
+		ArrayList<Packet> sending = new ArrayList<>();
 
 		// Handle collision, fruit pickup/spawning, segment adding
 		for (Snake thisSnake : connectedClients)
@@ -524,6 +527,7 @@ public class MPSServer extends SecureSocket
 					{
 						interceptingSnake = otherClient;
 						colliding = true;
+						break;
 					}
 				}
 
@@ -570,8 +574,9 @@ public class MPSServer extends SecureSocket
 						interceptingSnake.modifyFoodInBelly(-1*interceptingSnake.getFoodInBelly());
 						thisSnake.removeHungryBuffEarly();
 						interceptingSnake.removeAllBuffsEarly();
+						sendPointList = true;
 						SnakeBitePacket snakeBite = new SnakeBitePacket(thisSnake.getClientName(), interceptingSnake.getClientName(), bitOff);
-						sendToAll(snakeBite);
+						sending.add(snakeBite);
 					}
 					else // Bit off more than they can chew
 					{
@@ -597,7 +602,7 @@ public class MPSServer extends SecureSocket
 
 							// Inform all clients that a player picked up a fruit so the Fruit is no longer drawn
 							FruitPickupPacket pack = new FruitPickupPacket(thisSnake.getClientName(), pickingUp);
-							sendToAll(pack); 
+							sending.add(pack);
 
 							// If this fruit has an associated buff, grant it to the player
 							if (pickingUp.hasAssociatedBuff())
@@ -607,7 +612,7 @@ public class MPSServer extends SecureSocket
 							spawnRandomFruit();	
 						}	
 					}
-
+					
 					// Handle the snake adding more segments as a result of recently eating a Fruit
 					if (thisSnake.hasFoodInBelly())
 					{
@@ -621,18 +626,26 @@ public class MPSServer extends SecureSocket
 				}
 				else
 				{
+				//    thisSnake.setIsAlive(true); <- TODO uncomment to disable death
 					// Collision occurred and the client is now dead, so send a SnakeDeathPacket
 					SnakeDeathPacket snakeDeathPack = new SnakeDeathPacket(thisSnake.getClientName());
-					sendToAll(snakeDeathPack);
+					sending.add(snakeDeathPack);
 				}
 			}
 		}
+		
+		updateAllClients(sendPointList, sending);
 	}
 
-	private int tickNum = 0;
-
+//	private int tickNum = 0;
+	
 	private void updateAllClients(boolean sendPointList)
 	{
+		updateAllClients(sendPointList, new ArrayList<>());
+	}
+	
+	private void updateAllClients(boolean sendPointList, ArrayList<Packet> sendingAfter)
+	{	
 		for (Snake client : connectedClients)
 		{
 			String[] excluding = sendPointList ? null : new String[] { "pointList" };
@@ -640,6 +653,9 @@ public class MPSServer extends SecureSocket
 			SnakeUpdatePacket updatePack = new SnakeUpdatePacket(clientClone);
 			sendToAll(updatePack);	
 		}
+		
+		for (Packet p : sendingAfter)
+			sendToAll(p);
 	}
 
 	private void updateClient(Snake updating, boolean sendPointList)

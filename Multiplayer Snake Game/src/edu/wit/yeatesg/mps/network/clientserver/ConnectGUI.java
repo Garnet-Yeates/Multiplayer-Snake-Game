@@ -3,8 +3,14 @@ package edu.wit.yeatesg.mps.network.clientserver;
 import java.awt.Color;
 import java.awt.EventQueue;
 import java.awt.Font;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.util.Random;
+
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -39,7 +45,6 @@ public class ConnectGUI extends JPanel
 	{
 		frame = new ConnectFrame();
 		internalClient = new MPSClient(defaultClientName);
-		setLookAndFeel();
 		frame.setVisible(true);
 	}
 
@@ -52,10 +57,8 @@ public class ConnectGUI extends JPanel
 	{
 		if (btn_Connect.isEnabled())
 		{
-			if (isHost)
-				field_ip.setText("localhost");
-			label_statusMessage.setForeground(new Color(0, 160, 0));
-			label_statusMessage.setText(isHost ? "Creating Server......" : "Connecting...");
+			label_statusMessage.setForeground(new Color(0, 140, 0));
+			label_statusMessage.setText(isHost ? "Creating Server..." : "Connecting...");
 
 			disableButtons(1500);
 
@@ -85,8 +88,11 @@ public class ConnectGUI extends JPanel
 		{	
 			try { Integer.parseInt(field_port.getText()); }
 			catch (NumberFormatException e) {  throw new InvalidInputException("Invalid Port"); }
-
-			if (!field_ip.getText().equals("localhost") && !field_ip.getText().contains("."))
+			
+			if (field_ip.getText().equals(""))
+				field_ip.setText("localhost");
+			
+			if (!isHost && !field_ip.getText().contains(".") && !field_ip.getText().equals("localhost"))
 				throw new InvalidInputException("Invalid IP Address");
 
 			if (!GameplayGUI.validName(field_name.getText()))
@@ -103,11 +109,14 @@ public class ConnectGUI extends JPanel
 
 			// Inputs are not erroneous, try to connect
 
-			boolean b = internalClient.attemptConnect(field_ip.getText(), port, isHost);
-
-			if (b)
-				EventQueue.invokeLater(() -> frame.dispose());
-
+			if (internalClient.attemptConnect(field_ip.getText(), port, isHost))
+			{
+				EventQueue.invokeLater(() ->
+				{
+					new LobbyGUI(internalClient.getName(), internalClient, port);
+					frame.dispose();
+				});
+			}
 		}
 		catch (ServerStartFailedException | InvalidInputException | ConnectionFailedException | ServerFullException | ActiveGameException | DuplicateNameException e)
 		{
@@ -137,28 +146,30 @@ public class ConnectGUI extends JPanel
 			ConnectGUI.this.setBorder(new EmptyBorder(5, 5, 5, 5));
 			setContentPane(ConnectGUI.this);
 			ConnectGUI.this.setLayout(null);
-
-			field_ip = new JTextField();
+			
+			field_ip = new GTextField();
 			field_ip.setHorizontalAlignment(SwingConstants.LEFT);
 			field_ip.setBounds(10, 29, 96, 20);
 			field_ip.setColumns(10);
 			field_ip.setText("localhost");
-			field_ip.addKeyListener(new TextFieldKeyListener(field_ip));
+			field_ip.grabFocus();
 			ConnectGUI.this.add(field_ip);
 
-			field_port = new JTextField();
+			field_port = new GTextField();
 			field_port.setHorizontalAlignment(SwingConstants.LEFT);
 			field_port.setColumns(10);
 			field_port.setBounds(112, 29, 48, 20);
 			field_port.setText("8122");
-			field_port.addKeyListener(new TextFieldKeyListener(field_port));
 			ConnectGUI.this.add(field_port);
 
-			field_name = new JTextField();
-			field_name.setText("Nom");
+			String randName = "";
+			Random randNameGen = new Random();
+			for (int i = 0; i < 17; i++)
+				randName += randNameGen.nextInt(10) + "";
+			field_name = new GTextField();
+			field_name.setText(randName);
 			field_name.setColumns(10);
 			field_name.setBounds(10, 70, 150, 20);
-			field_name.addKeyListener(new TextFieldKeyListener(field_name));
 			ConnectGUI.this.add(field_name);
 
 			JLabel label_name = new JLabel("Name");
@@ -192,16 +203,24 @@ public class ConnectGUI extends JPanel
 			ConnectGUI.this.add(btn_Host);			
 		}
 	}
-
-	private class TextFieldKeyListener implements KeyListener
+	
+	private class GTextField extends JTextField implements KeyListener, FocusListener, MouseListener
 	{
-		private JTextField typingOn;
+		private static final long serialVersionUID = 599016001086758578L;
 
-		public TextFieldKeyListener(JTextField typingOn)
+		public GTextField(String text)
 		{
-			this.typingOn = typingOn;
+			super(text);
+			addMouseListener(this);
+			addFocusListener(this);
+			addKeyListener(this);
 		}
-
+		
+		public GTextField()
+		{
+			this(null);
+		}
+		
 		@Override
 		public void keyPressed(KeyEvent e)
 		{			
@@ -212,17 +231,17 @@ public class ConnectGUI extends JPanel
 
 		public void keyTyped(KeyEvent e)
 		{
-			if (typingOn == field_name && typingOn.getText().length() >= MAX_NAME_LENGTH)	
+			if (this == field_name && getText().length() >= MAX_NAME_LENGTH)	
 			{
 				e.consume();
-				typingOn.setText(typingOn.getText().substring(0, MAX_NAME_LENGTH));
+				setText(getText().substring(0, MAX_NAME_LENGTH));
 			}
-			else if (typingOn == field_port)
+			else if (this == field_port)
 			{
-				if (typingOn.getText().length() >= 5)
+				if (getText().length() >= 5)
 				{
 					e.consume();
-					typingOn.setText(typingOn.getText().substring(0, 5));
+					setText(getText().substring(0, 5));
 				}
 				else if (!Character.isDigit(e.getKeyChar()))
 				{
@@ -231,21 +250,55 @@ public class ConnectGUI extends JPanel
 			}
 		}
 		public void keyReleased(KeyEvent arg0) { }
-	}
 
+	
+		@Override
+		public void focusGained(FocusEvent arg0)
+		{
+	//		if (this != field_ip)
+	//			setText("");
+		}
 
-	public static void setLookAndFeel()
-	{
-		try
+		@Override
+		public void focusLost(FocusEvent arg0)
 		{
-			LookAndFeelInfo[] feels = UIManager.getInstalledLookAndFeels();
-			UIManager.setLookAndFeel(feels[3].getClassName());
-		} 
-		catch (Exception e)
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void mouseClicked(MouseEvent e)
 		{
-			e.printStackTrace();
+			setText("");
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void mouseEntered(MouseEvent e) {
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void mouseExited(MouseEvent e) {
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void mousePressed(MouseEvent e) {
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void mouseReleased(MouseEvent e) {
+			// TODO Auto-generated method stub
+			
 		}
 	}
+
 
 	/**
 	 * Checked exception for when the user input in one of the text fields of the ConnectGUI is invalid
